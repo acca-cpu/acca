@@ -9,6 +9,18 @@ to create:
   * An assembler
   * A C compiler backend (probably for LLVM)
   * Possibly a JIT recompiler (maybe based on LLVM)
+  * Possibly a VHDL implementation of the processor
+
+## Building the Specification
+
+We use [mdBook](https://github.com/rust-lang/mdBook) along with
+[mdbook-pdf](https://github.com/HollowMan6/mdbook-pdf) to compile the
+specification into a PDF. Additionally, we use
+[mdbook-pdf-outline](https://pypi.org/project/mdbook-pdf-outline/) to add a
+useful outline/table-of-contents to the generated PDF.
+
+The most-recent compiled draft of the specification can be found
+[here](https://github.com/facekapow/acca/releases/latest).
 
 ## License
 
