@@ -1,0 +1,226 @@
+root = _{ SOI ~ (label | instr)* ~ EOI }
+
+label = { ident ~ ":" }
+
+instr = {
+	instr_pushs |
+	instr_pushp |
+	instr_pops |
+	instr_popp |
+	instr_lds |
+	instr_ldp |
+	instr_sts |
+	instr_stp |
+	instr_ldi |
+	instr_copy |
+	instr_add_reg |
+	instr_add_imm |
+	instr_sub_reg |
+	instr_sub_imm |
+	instr_mul |
+	instr_div |
+	instr_and_reg |
+	instr_and_imm |
+	instr_or_reg |
+	instr_or_imm |
+	instr_xor_reg |
+	instr_xor_imm |
+	instr_shl |
+	instr_shr |
+	instr_rot |
+	instr_neg |
+	instr_bswap |
+	instr_jmpa |
+	instr_jmpr |
+	instr_cjmpa |
+	instr_cjmpr |
+	instr_calla |
+	instr_callr |
+	instr_ret |
+	instr_eret |
+	instr_udf |
+	instr_dbg |
+	instr_exc |
+	instr_nop |
+	instr_ldm |
+	instr_stm |
+
+	instr_unknown
+}
+
+size = { "b" | "d" | "q" | "w" }
+size_suffix = ${ "." ~ size }
+
+condition = @{ "n"? ~ ("c" | "z" | "o" | "s") }
+condition_suffix = ${ "." ~ condition }
+
+// accept numbers 0 through 15
+register_number = @{ ASCII_DIGIT | ("1" ~ ('0'..'5')) }
+register_name = @{ "sp" | "fp" | "lr" }
+register = ${ "r" ~ (register_number | register_name) ~ size? }
+
+null = { "null" }
+register_or_null = _{ register | null }
+
+ident = @{ ASCII_ALPHA ~ ASCII_ALPHANUMERIC* }
+
+binary_literal = @{ ^"0b" ~ ASCII_BIN_DIGIT+ }
+octal_literal = @{ ^"0o" ~ ASCII_OCT_DIGIT+ }
+decimal_literal = @{ ^"0d"? ~ ASCII_DIGIT+ }
+hex_literal = @{ ^"0x" ~ ASCII_HEX_DIGIT+ }
+integer = { binary_literal | octal_literal | hex_literal | decimal_literal }
+
+boolean = { "true" | "false" }
+
+machine_register = {
+	"flags" |
+	"elr" |
+	"esp" |
+	"eflags" |
+	"einfo" |
+	"eaddr" |
+	"evtable" |
+	"ectable"
+}
+machine_register_literal = { "mreg" ~ "." ~ machine_register }
+
+immediate = { prefix* ~ primary ~ (infix ~ prefix* ~ primary)* }
+neg = { "-" }
+not = { "~" }
+add = { "+" }
+sub = { "-" }
+mul = { "*" }
+div = { "/" }
+rem = { "%" }
+and = { "&" }
+or = { "|" }
+xor = { "^" }
+shift_left = { "<<" }
+shift_right_arithmetic = { ">>>" }
+shift_right_logical = { ">>" }
+prefix = _{ neg | not }
+infix = _{ add | sub | mul | div | rem | and | or | xor | shift_left | shift_right_arithmetic | shift_right_logical }
+primary = _{ integer | boolean | machine_register_literal | ident | "(" ~ immediate ~ ")" }
+
+WHITESPACE = _{ " " | "\t" | NEWLINE }
+COMMENT    = _{ "#" ~ (!NEWLINE ~ ANY)* }
+
+//
+// instructions
+//
+
+instr_pushs_name = ${ "pushs" ~ size_suffix? }
+instr_pushs = { instr_pushs_name ~ register }
+
+instr_pushp_name = ${ "pushp" ~ size_suffix? }
+instr_pushp = { instr_pushp_name ~ register ~ "," ~ register }
+
+instr_pops_name = ${ "pops" ~ size_suffix? }
+instr_pops = { instr_pops_name ~ register }
+
+instr_popp_name = ${ "popp" ~ size_suffix? }
+instr_popp = { instr_popp_name ~ register ~ "," ~ register }
+
+instr_lds_name = ${ "lds" ~ size_suffix? }
+instr_lds = { instr_lds_name ~ register ~ "," ~ register }
+
+instr_ldp_name = ${ "ldp" ~ size_suffix? }
+instr_ldp = { instr_ldp_name ~ register ~ "," ~ register ~ "," ~ register }
+
+instr_sts_name = ${ "sts" ~ size_suffix? }
+instr_sts = { instr_sts_name ~ register ~ "," ~ register }
+
+instr_stp_name = ${ "stp" ~ size_suffix? }
+instr_stp = { instr_stp_name ~ register ~ "," ~ register ~ "," ~ register }
+
+instr_ldi_name = ${ "ldi" }
+instr_ldi = { instr_ldi_name ~ register ~ "," ~ immediate ~ ("," ~ immediate ~ ("," ~ immediate)?)? }
+
+instr_copy_name = ${ "copy" }
+instr_copy = { instr_copy_name ~ register ~ "," ~ register }
+
+instr_add_name = ${ "add" ~ size_suffix? }
+instr_add_reg = { instr_add_name ~ register_or_null ~ "," ~ register ~ "," ~ register ~ ("," ~ immediate ~ ("," ~ immediate)?)? }
+instr_add_imm = { instr_add_name ~ register_or_null ~ "," ~ register ~ "," ~ immediate ~ ("," ~ immediate ~ ("," ~ immediate ~ ("," ~ immediate ~ ("," ~ immediate)?)?)?)? }
+
+instr_sub_name = ${ "sub" ~ size_suffix? }
+instr_sub_reg = { instr_sub_name ~ register_or_null ~ "," ~ register ~ "," ~ register ~ ("," ~ immediate ~ ("," ~ immediate)?)? }
+instr_sub_imm = { instr_sub_name ~ register_or_null ~ "," ~ register ~ "," ~ immediate ~ ("," ~ immediate ~ ("," ~ immediate ~ ("," ~ immediate ~ ("," ~ immediate)?)?)?)? }
+
+instr_mul_name = ${ "mul" }
+instr_mul = { instr_mul_name ~ register ~ "," ~ register ~ "," ~ register ~ ("," ~ immediate ~ ("," ~ immediate)?)? }
+
+instr_div_name = ${ "div" ~ size_suffix? }
+instr_div = { instr_div_name ~ register ~ "," ~ register ~ "," ~ register ~ "," ~ register ~ ("," ~ immediate ~ ("," ~ immediate)?)? }
+
+instr_and_name = ${ "and" ~ size_suffix? }
+instr_and_reg = { instr_and_name ~ register_or_null ~ "," ~ register ~ "," ~ register ~ ("," ~ immediate)? }
+instr_and_imm = { instr_and_name ~ register_or_null ~ "," ~ register ~ "," ~ immediate ~ ("," ~ immediate ~ ("," ~ immediate)?)? }
+
+instr_or_name = ${ "or" ~ size_suffix? }
+instr_or_reg = { instr_or_name ~ register_or_null ~ "," ~ register ~ "," ~ register ~ ("," ~ immediate)? }
+instr_or_imm = { instr_or_name ~ register_or_null ~ "," ~ register ~ "," ~ immediate ~ ("," ~ immediate ~ ("," ~ immediate)?)? }
+
+instr_xor_name = ${ "xor" ~ size_suffix? }
+instr_xor_reg = { instr_xor_name ~ register_or_null ~ "," ~ register ~ "," ~ register ~ ("," ~ immediate)? }
+instr_xor_imm = { instr_xor_name ~ register_or_null ~ "," ~ register ~ "," ~ immediate ~ ("," ~ immediate ~ ("," ~ immediate)?)? }
+
+instr_shl_name = ${ "shl" ~ size_suffix? }
+instr_shl = { instr_shl_name ~ register_or_null ~ "," ~ register ~ "," ~ (register | immediate) ~ ("," ~ immediate)? }
+
+instr_shr_name = ${ "shr" ~ size_suffix? }
+instr_shr = { instr_shr_name ~ register_or_null ~ "," ~ register ~ "," ~ (register | immediate) ~ ("," ~ immediate ~ ("," ~ immediate)?)? }
+
+instr_rot_name = ${ "rot" ~ size_suffix? }
+instr_rot = { instr_rot_name ~ register_or_null ~ "," ~ register ~ "," ~ (register | immediate) ~ ("," ~ immediate)? }
+
+instr_neg_name = ${ "neg" ~ size_suffix? }
+instr_neg = { instr_neg_name ~ register ~ "," ~ register ~ ("," ~ immediate)? }
+
+instr_bswap_name = ${ "bswap" ~ size_suffix? }
+instr_bswap = { instr_bswap_name ~ register ~ "," ~ register ~ ("," ~ immediate)? }
+
+instr_jmpa_name = ${ "jmpa" ~ condition_suffix? }
+instr_jmpa = { instr_jmpa_name ~ register }
+
+instr_jmpr_name = ${ "jmpr" ~ condition_suffix? }
+instr_jmpr = { instr_jmpr_name ~ (register | immediate) }
+
+instr_cjmpa_name = ${ "cjmpa" ~ condition_suffix ~ size_suffix? }
+instr_cjmpa = { instr_cjmpa_name ~ register ~ "," ~ register ~ "," ~ register }
+
+instr_cjmpr_name = ${ "cjmpr" ~ condition_suffix ~ size_suffix? }
+instr_cjmpr = { instr_cjmpr_name ~ (register | immediate) ~ "," ~ register ~ "," ~ register }
+
+instr_calla_name = ${ "calla" ~ condition_suffix? }
+instr_calla = { instr_calla_name ~ register }
+
+instr_callr_name = ${ "callr" ~ condition_suffix? }
+instr_callr = { instr_callr_name ~ (register | immediate) }
+
+instr_ret_name = ${ "ret" }
+instr_ret = { instr_ret_name }
+
+instr_eret_name = ${ "eret" }
+instr_eret = { instr_eret_name }
+
+instr_udf_name = ${ "udf" }
+instr_udf = { instr_udf_name }
+
+instr_dbg_name = ${ "dbg" }
+instr_dbg = { instr_dbg_name }
+
+instr_exc_name = ${ "exc" }
+instr_exc = { instr_exc_name ~ immediate }
+
+instr_nop_name = ${ "nop" }
+instr_nop = { instr_nop_name }
+
+instr_ldm_name = ${ "ldm" }
+instr_ldm = { instr_ldm_name ~ register ~ "," ~ (machine_register | immediate) }
+
+instr_stm_name = ${ "stm" }
+instr_stm = { instr_stm_name ~ (machine_register | immediate) ~ "," ~ register }
+
+instr_unknown_name = { ASCII_ALPHA+ }
+instr_unknown = { instr_unknown_name ~ (!NEWLINE ~ ANY)* }

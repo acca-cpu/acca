@@ -1,0 +1,14 @@
+foo:
+	callr bar
+	pushs r0
+bar:
+	ldm r1d, 0
+	ldi r0, 0xabcd
+	nop
+qux:
+	jmpr bar
+	callr qux
+	add.b r1b, r9b, 9
+	cjmpr.ns bar, r1, r2
+	ret
+	sub null, r2, r5

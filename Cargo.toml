@@ -1,4 +1,6 @@
 [workspace]
 members = [
-	"acca-emu"
+	"acca-emu",
+	"acca-as",
+	"acca-as-proc-macro",
 ]

@@ -1,0 +1,13 @@
+[package]
+name = "acca-as-proc-macro"
+version = "0.1.0"
+edition = "2021"
+license = "MPL-2.0"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+litrs = "0.4.0"
+proc-macro2 = "1.0.52"
+quote = "1.0.26"
