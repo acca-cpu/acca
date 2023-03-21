@@ -284,9 +284,9 @@ This instruction copies the value from register `s` into register `d`.
 
 #### Encoding
 
-|  31-26   |         25-8         |  7-4   |  3-0   |
-| -------- | -------------------- | ------ | ------ |
-| `101010` | `000000000000000000` | `dddd` | `ssss` |
+|  31-26   |       25-10        | 9-8  |  7-4   |  3-0   |
+| -------- | ------------------ | ---- | ------ | ------ |
+| `101010` | `0000000000000000` | `ss` | `dddd` | `SSSS` |
 
 ### `add[.s] d:reg | null, a:reg, b:reg[, c:bool][, f:bool]`
 
@@ -750,9 +750,9 @@ modify the CPU flags register as follows:
 
 #### Encoding
 
-|  31-26   |       25-10        | 9-8  |  7  |  6-4   |  3-0   |
-| -------- | ------------------ | ---- | --- | ------ | ------ |
-| `010101` | `0000000000000000` | `ss` | `f` | `dddd` | `aaaa` |
+|  31-26   |       25-11       | 10-9 |  8  |  7-4   |  3-0   |
+| -------- | ----------------- | ---- | --- | ------ | ------ |
+| `010101` | `000000000000000` | `ss` | `f` | `dddd` | `aaaa` |
 
 ### `bswap[.s] d:reg, a:reg[, f: bool]`
 
@@ -775,9 +775,9 @@ modify the CPU flags register as follows:
 
 #### Encoding
 
-|  31-26   |       25-10        | 9-8  |  7  |  6-4   |  3-0   |
-| -------- | ------------------ | ---- | --- | ------ | ------ |
-| `010100` | `0000000000000000` | `ss` | `f` | `dddd` | `aaaa` |
+|  31-26   |       25-11       | 10-9 |  8  |  7-4   |  3-0   |
+| -------- | ----------------- | ---- | --- | ------ | ------ |
+| `010100` | `000000000000000` | `ss` | `f` | `dddd` | `aaaa` |
 
 ## Conditionals and Control Flow
 
@@ -818,9 +818,9 @@ This instruction jumps to the absolute address in register `a`.
 
 #### Encoding
 
-|  31-26   |         25-7          |  6-4  |  3-0   |
-| -------- | --------------------- | ----- | ------ |
-| `010011` | `0000000000000000000` | `ccc` | `aaaa` |
+|  31-26   |         25-8         |  7-4  |  3-0   |
+| -------- | -------------------- | ------ | ------ |
+| `010011` | `000000000000000000` | `cccc` | `aaaa` |
 
 ### `jmpr[.c] a:reg`
 
@@ -830,23 +830,23 @@ This instruction jumps to the relative address in register `a`.
 
 #### Encoding
 
-|  31-26   |         25-7          |  6-4  |  3-0   |
-| -------- | --------------------- | ----- | ------ |
-| `010010` | `0000000000000000000` | `ccc` | `aaaa` |
+|  31-26   |         25-8         |  7-4   |  3-0   |
+| -------- | -------------------- | ------ | ------ |
+| `010010` | `000000000000000000` | `cccc` | `aaaa` |
 
-### `jmpr[.c] a:imm23`
+### `jmpr[.c] a:imm22`
 
 "jump to relative immediate"
 
 This instruction jumps to the relative address given in the immediate. This
-immediate is limited to 23 bits, meaning it can jump +131,071 or -131,072
+immediate is limited to 22 bits, meaning it can jump +2,097,151 or -2,097,152
 instructions relative to the instruction pointer.
 
 #### Encoding
 
-|  31-26   | 25-23 |           22-0            |
-| -------- | ----- | ------------------------- |
-| `010001` | `ccc` | `aaaaaaaaaaaaaaaaaaaaaaa` |
+|  31-26   | 25-22  |           21-0           |
+| -------- | ------ | ------------------------ |
+| `010001` | `cccc` | `aaaaaaaaaaaaaaaaaaaaaa` |
 
 ### `cjmpa.c[.s] a:reg, b:reg, C:reg`
 
@@ -906,17 +906,9 @@ range is +4095 or -4096 instructions.
 
 #### Encoding
 
-**If `C` is a register:**
-
 |  31-26   | 25-23 | 22-21 | 20-17  | 16-13  |      12-0       |
 | -------- | ----- | ----- | ------ | ------ | --------------- |
 | `001011` | `ccc` | `ss`  | `bbbb` | `CCCC` | `aaaaaaaaaaaaa` |
-
-**If `C` is an immediate:**
-
-|  31-26   | 25-23 | 22-21 | 20-17  |    16-9    |     8-0     |
-| -------- | ----- | ----- | ------ | ---------- | ----------- |
-| `001100` | `ccc` | `ss`  | `bbbb` | `CCCCCCCC` | `aaaaaaaaa` |
 
 ### `calla[.c] a:reg`
 
@@ -928,9 +920,9 @@ register (`r15` or `rlr`) and then performs a jump like
 
 #### Encoding
 
-|  31-26   |          25-5           |  6-4  |  3-0   |
-| -------- | ----------------------- | ----- | ------ |
-| `001010` | `000000000000000000000` | `ccc` | `aaaa` |
+|  31-26   |         25-8         |  7-4   |  3-0   |
+| -------- | -------------------- | ------ | ------ |
+| `001010` | `000000000000000000` | `cccc` | `aaaa` |
 
 ### `callr[.c] a:reg`
 
@@ -942,11 +934,11 @@ register (`r15` or `rlr`) and then performs a jump like
 
 #### Encoding
 
-|  31-26   |          25-5           |  6-4  |  3-0   |
-| -------- | ----------------------- | ----- | ------ |
-| `001001` | `000000000000000000000` | `ccc` | `aaaa` |
+|  31-26   |         25-8         |  7-4   |  3-0   |
+| -------- | -------------------- | ------ | ------ |
+| `001001` | `000000000000000000` | `cccc` | `aaaa` |
 
-### `callr[.c] a:imm23`
+### `callr[.c] a:imm22`
 
 "call relative immediate"
 
@@ -956,9 +948,9 @@ register (`r15` or `rlr`) and then performs a jump like
 
 #### Encoding
 
-|  31-26   | 25-23 |           22-0            |
-| -------- | ----- | ------------------------- |
-| `001000` | `ccc` | `aaaaaaaaaaaaaaaaaaaaaaa` |
+|  31-26   | 25-22  |           21-0           |
+| -------- | ------ | ------------------------ |
+| `001000` | `cccc` | `aaaaaaaaaaaaaaaaaaaaaa` |
 
 ### `ret`
 
