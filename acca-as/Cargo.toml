@@ -10,3 +10,4 @@ lazy_static = "1.4.0"
 pest = "2.5.6"
 pest_derive = "2.5.6"
 acca-as-proc-macro = { path = "../acca-as-proc-macro" }
+positioned-io = "0.3.1"

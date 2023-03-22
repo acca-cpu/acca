@@ -4,3 +4,4 @@ target/
 *.pdb
 spec/book
 .vscode
+**/*.bin

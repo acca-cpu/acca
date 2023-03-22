@@ -71,6 +71,7 @@ fn instruction_helper(item: TokenStream) -> (proc_macro2::TokenStream, proc_macr
 	let mut size_mod = Modifier::Absent;
 	let mut needs_comma = false;
 	let mut args: Vec<Argument> = Vec::new();
+	#[allow(unused)]
 	let mut instruction_name = source_name.clone();
 
 	match iter.peek() {
@@ -80,10 +81,13 @@ fn instruction_helper(item: TokenStream) -> (proc_macro2::TokenStream, proc_macr
 			// consume the punctuation
 			iter.next();
 
-			instruction_name = iter
-				.next()
-				.expect("Instruction should have a name after the equal sign")
-				.to_string();
+			#[allow(unused)]
+			{
+				instruction_name = iter
+					.next()
+					.expect("Instruction should have a name after the equal sign")
+					.to_string();
+			}
 		},
 		_ => {},
 	}
@@ -393,12 +397,12 @@ fn instruction_helper(item: TokenStream) -> (proc_macro2::TokenStream, proc_macr
 				Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Bracket => {
 					let stream: proc_macro2::TokenStream = group.stream().into();
 
-					quote_spanned!(source_span=> instruction_body! { #(#default_pattern),* ; #size_ident #cond_ident [ #stream ] })
+					quote_spanned!(source_span=> instruction_body! { write_instruction #(#default_pattern),* ; #size_ident #cond_ident [ #stream ] })
 				},
 				Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Brace => {
 					let stream: proc_macro2::TokenStream = group.stream().into();
 
-					quote_spanned!(source_span=> instruction_body! { #size_ident #cond_ident { #stream }})
+					quote_spanned!(source_span=> instruction_body! { write_instruction #size_ident #cond_ident { #stream }})
 				},
 				_ => panic!("Expected bracketed encoding"),
 			}
@@ -463,7 +467,7 @@ fn instruction_helper(item: TokenStream) -> (proc_macro2::TokenStream, proc_macr
 
 		let mut arg_expr = {
 			let consumed = match &arg.consumer_function {
-				Some(consumer) => quote_spanned!(source_span=> #consumer(&mut instr_pairs)),
+				Some(consumer) => quote_spanned!(source_span=> #consumer(&mut instr_pairs, addr - 4)),
 				None => match arg.ty {
 					ArgumentType::Register => {
 						quote_spanned!(source_span=> next_register(&mut instr_pairs))
@@ -472,19 +476,19 @@ fn instruction_helper(item: TokenStream) -> (proc_macro2::TokenStream, proc_macr
 						quote_spanned!(source_span=> next_register_or_null(&mut instr_pairs))
 					},
 					ArgumentType::Immediate(_) => {
-						quote_spanned!(source_span=> next_immediate(&mut instr_pairs))
+						quote_spanned!(source_span=> next_immediate(&mut instr_pairs, addr - 4))
 					},
 					ArgumentType::RelativeImmediate(_) => {
-						quote_spanned!(source_span=> next_relative_immediate(&mut instr_pairs, addr))
+						quote_spanned!(source_span=> next_relative_immediate(&mut instr_pairs, addr - 4, addr))
 					},
 					ArgumentType::Boolean => {
-						quote_spanned!(source_span=> next_immediate(&mut instr_pairs))
+						quote_spanned!(source_span=> next_immediate(&mut instr_pairs, addr - 4))
 					},
 					ArgumentType::RegisterOrImmediate(_) => {
-						quote_spanned!(source_span=> next_argument(&mut instr_pairs))
+						quote_spanned!(source_span=> next_argument(&mut instr_pairs, addr - 4))
 					},
 					ArgumentType::RegisterOrRelativeImmediate(_) => {
-						quote_spanned!(source_span=> next_relative_argument(&mut instr_pairs, addr))
+						quote_spanned!(source_span=> next_relative_argument(&mut instr_pairs, addr - 4, addr))
 					},
 				}
 			};
@@ -529,35 +533,41 @@ fn instruction_helper(item: TokenStream) -> (proc_macro2::TokenStream, proc_macr
 		}
 	});
 
+	#[allow(unused)]
 	let cond_format = if condition_mod != Modifier::Absent {
 		"; cond = {:?}"
 	} else {
 		""
 	};
 
+	#[allow(unused)]
 	let size_format = if size_mod != Modifier::Absent {
 		"; size = {:?}"
 	} else {
 		""
 	};
 
+	#[allow(unused)]
 	let cond_print = if condition_mod != Modifier::Absent {
 		quote_spanned!(source_span=> , cond)
 	} else {
 		quote_spanned!(source_span=>)
 	};
 
+	#[allow(unused)]
 	let size_print = if size_mod != Modifier::Absent {
 		quote_spanned!(source_span=> , size)
 	} else {
 		quote_spanned!(source_span=>)
 	};
 
+	#[allow(unused)]
 	let arg_prints = args.iter().map(|arg| {
 		let source_name = arg.source_name();
 		quote_spanned!(source_span=> #source_name)
 	});
 
+	#[allow(unused)]
 	let arg_print_format = args.iter().fold(String::new(), |acc, arg| {
 		format!(
 			"{}{}{} = {{:?}}",
@@ -575,11 +585,12 @@ fn instruction_helper(item: TokenStream) -> (proc_macro2::TokenStream, proc_macr
 				#cond_unwrap
 				#size_unwrap
 
-				println!(concat!("instruction: ", #instruction_name, "(", #source_name, #cond_format, #size_format, ")", #arg_print_format) #cond_print #size_print, #(#arg_prints),*);
+				//println!(concat!("instruction: ", #instruction_name, "(", #source_name, #cond_format, #size_format, ")", #arg_print_format) #cond_print #size_print, #(#arg_prints),*);
 
 				#body
 			}
-		}.into(),
+		}
+		.into(),
 		source_ident,
 	)
 }
@@ -629,7 +640,7 @@ pub fn instructions(item: TokenStream) -> TokenStream {
 
 			Rule::instr_unknown => {
 				let loc = instr.line_col();
-				println!(
+				eprintln!(
 					"Error: encountered unknown instruction \"{}\": {}:{}:{}",
 					instr.into_inner().next().unwrap().as_str(),
 					cli.source.display(),
@@ -647,7 +658,10 @@ pub fn instructions(item: TokenStream) -> TokenStream {
 
 #[proc_macro]
 pub fn instruction_encoding(item: TokenStream) -> TokenStream {
-	let mut all_tokens: Vec<_> = item.into_iter().collect();
+	let mut tmp_iter = item.into_iter();
+	let write_instr_ident: proc_macro2::TokenStream =
+		TokenStream::from(tmp_iter.next().unwrap()).into();
+	let mut all_tokens: Vec<_> = tmp_iter.collect();
 
 	let first_span: proc_macro2::Span = all_tokens.first().unwrap().span().into();
 	let last_span: proc_macro2::Span = all_tokens.last().unwrap().span().into();
@@ -743,7 +757,8 @@ pub fn instruction_encoding(item: TokenStream) -> TokenStream {
 	}
 
 	quote_spanned! {source_span=>
-		println!("encoding: {:#034b}", #result);
+		//println!("encoding: {:#034b}", #result);
+		#write_instr_ident(#result);
 	}
 	.into()
 }

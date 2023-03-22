@@ -1,14 +1,53 @@
-foo:
-	callr bar
-	pushs r0
-bar:
-	ldm r1d, 0
-	ldi r0, 0xabcd
-	nop
-qux:
-	jmpr bar
-	callr qux
-	add.b r1b, r9b, 9
-	cjmpr.ns bar, r1, r2
+.def mreg_vm_console 0xdead_01
+
+.addr 0x0400
+entry:
+	# load some arbitrary address into the stack pointer register
+	# (clear register before, then load 0x0100 << 16 == 0x0100_0000)
+	# note that this is the *top* of the stack; we consider the stack
+	# to be from 0x0100_0000 to 0x00ff_0000 (64KiB)
+	ldi rsp, 0x0100, 16, 3
+
+	# load the address of the string into argument 1
+	ldr r0, hello_world_str
+	callr print_string
+loop:
+	jmpr loop # or `jmpr $`
+
+# void print_string(char* string)
+#
+# string: r0
+print_string:
+	# prologue: save frame pointer to stack, then update frame pointer with current stack pointer
+	# since we have to push 16 bytes to the stack to keep it aligned, we also go ahead and save the link register
+	pushp rfp, rlr
+	copy rfp, rsp
+
+print_string_loop:
+	# load the character
+	lds r9b, r0
+
+	# check if it's null (0)
+	# jump out of the loop if it is
+	sub null, r9b, 0, 0, 0, 0, 1
+	jmpr.z print_string_loop_done
+
+	# write the character to the VM console
+	# (only the lowest 8 bits are actually used, which is our character)
+	stm mreg_vm_console, r9
+
+	# increment the pointer
+	add r0, r0, 1
+
+	# continue the loop
+	jmpr print_string_loop
+print_string_loop_done:
+
+	# epilogue: restore stack pointer from frame pointer, then restore frame pointer from stack
+	# as noted in the prologue, we also save the link register (since we have to push 16 bytes anyways)
+	copy rsp, rfp
+	popp rfp, rlr
 	ret
-	sub null, r2, r5
+
+hello_world_str:
+	.write.b 'H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '\n', 0

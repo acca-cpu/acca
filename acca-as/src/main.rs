@@ -23,6 +23,7 @@ extern crate pest_derive;
 extern crate proc_macro;
 #[macro_use]
 extern crate acca_as_proc_macro;
+extern crate positioned_io;
 
 use lazy_static::lazy_static;
 use pest::{
@@ -30,6 +31,8 @@ use pest::{
 	pratt_parser::{Assoc, Op, PrattParser},
 	Parser,
 };
+
+use positioned_io::WriteAt;
 
 #[derive(ClapParser)]
 #[command(author, version, about, long_about = None)]
@@ -150,6 +153,17 @@ impl Argument {
 	}
 }
 
+impl Size {
+	pub const fn byte_size(&self) -> u8 {
+		match self {
+			Size::Byte => 1,
+			Size::DoubleByte => 2,
+			Size::QuadByte => 4,
+			Size::Word => 8,
+		}
+	}
+}
+
 lazy_static! {
 	static ref PRATT: PrattParser<Rule> = PrattParser::new()
 		.op(Op::infix(Rule::or, Assoc::Left))
@@ -172,21 +186,26 @@ fn parse_integer(integer: Pair<Rule>) -> u64 {
 
 	let lit = integer.into_inner().next().unwrap();
 
-	match lit.as_rule() {
-		Rule::binary_literal => u64::from_str_radix(&lit.as_str()[2..], 2).unwrap(),
-		Rule::octal_literal => u64::from_str_radix(&lit.as_str()[2..], 8).unwrap(),
-		Rule::decimal_literal => u64::from_str_radix(
-			if lit.as_str().starts_with("0d") || lit.as_str().starts_with("0D") {
-				&lit.as_str()[2..]
-			} else {
-				lit.as_str()
-			},
-			10,
-		)
-		.unwrap(),
-		Rule::hex_literal => u64::from_str_radix(&lit.as_str()[2..], 16).unwrap(),
+	let as_str = match lit.as_rule() {
+		Rule::decimal_literal
+			if !lit.as_str().starts_with("0d") && !lit.as_str().starts_with("0D") =>
+		{
+			lit.as_str()
+		},
+		_ => &lit.as_str()[2..],
+	};
+
+	let radix = match lit.as_rule() {
+		Rule::binary_literal => 2,
+		Rule::octal_literal => 8,
+		Rule::decimal_literal => 10,
+		Rule::hex_literal => 16,
 		_ => unreachable!(),
-	}
+	};
+
+	let filtered: String = as_str.chars().filter(|&char| char != '_').collect();
+
+	u64::from_str_radix(&filtered, radix).unwrap()
 }
 
 fn parse_machine_register(mreg: &str) -> u64 {
@@ -207,6 +226,7 @@ fn evaluate_immediate(
 	immediate: Pair<Rule>,
 	label_addrs: &HashMap<&str, u64>,
 	filepath: &Path,
+	current_address: u64,
 	for_relative_addr: Option<u64>,
 ) -> u64 {
 	if immediate.as_rule() != Rule::immediate {
@@ -214,7 +234,7 @@ fn evaluate_immediate(
 	}
 
 	let loc = immediate.line_col();
-	PRATT
+	let result = PRATT
 		.map_primary(|primary| match primary.as_rule() {
 			Rule::integer => parse_integer(primary),
 			Rule::boolean => match primary.as_str() {
@@ -226,17 +246,33 @@ fn evaluate_immediate(
 				parse_machine_register(primary.into_inner().next().unwrap().as_str())
 			},
 			Rule::ident => match label_addrs.get(primary.as_str()) {
-				Some(x) => match for_relative_addr {
-					Some(rel_addr) => (*x / 4).wrapping_sub(rel_addr / 4),
-					None => *x,
-				},
+				Some(x) => *x,
 				None => {
 					println!("Unknown label \"{}\"", primary.as_str());
 					exit(1);
 				},
 			},
+			Rule::current_address => current_address,
+			Rule::character => {
+				let inner = primary.into_inner().next().unwrap();
+
+				(match inner.as_rule() {
+					Rule::normal_char => inner.as_str().chars().nth(1).unwrap(),
+					Rule::escaped_char => match inner.as_str().chars().nth(2).unwrap() {
+						'\'' => '\'',
+						'\\' => '\\',
+						'n' => '\n',
+						'f' => char::from_u32(12).unwrap(),
+						't' => '\t',
+						'r' => '\r',
+						'b' => char::from_u32(8).unwrap(),
+						_ => unreachable!(),
+					},
+					_ => unreachable!(),
+				} as u32) as u64
+			},
 			Rule::immediate => {
-				evaluate_immediate(primary, label_addrs, filepath, for_relative_addr)
+				evaluate_immediate(primary, label_addrs, filepath, current_address, None)
 			},
 			_ => unreachable!(),
 		})
@@ -274,7 +310,18 @@ fn evaluate_immediate(
 			Rule::rem => lhs % rhs,
 			_ => unreachable!(),
 		})
-		.parse(immediate.into_inner())
+		.parse(immediate.into_inner());
+
+	match for_relative_addr {
+		Some(rel_addr) => {
+			if (result & 3) != 0 {
+				panic!("Invalid relative address: not aligned to 4 bytes")
+			}
+
+			(result / 4).wrapping_sub(rel_addr / 4)
+		},
+		None => result,
+	}
 }
 
 fn parse_size(size: Pair<Rule>) -> Size {
@@ -292,7 +339,7 @@ fn parse_size(size: Pair<Rule>) -> Size {
 }
 
 fn parse_register(register: Pair<Rule>) -> Register {
-	if register.as_rule() != Rule::register {
+	if register.as_rule() != Rule::register && register.as_rule() != Rule::register_no_size {
 		panic!("Tried to parse register that wasn't a register");
 	}
 
@@ -370,6 +417,7 @@ fn parse_argument(
 	argument: Pair<Rule>,
 	label_addrs: &HashMap<&str, u64>,
 	filepath: &Path,
+	current_address: u64,
 	for_relative_addr: Option<u64>,
 ) -> Argument {
 	match argument.as_rule() {
@@ -378,6 +426,7 @@ fn parse_argument(
 			argument,
 			label_addrs,
 			filepath,
+			current_address,
 			for_relative_addr,
 		)),
 		_ => panic!("Tried to parse argument that wasn't a register or immediate"),
@@ -411,11 +460,12 @@ fn parse_machine_register_or_immediate(
 	pair: Pair<Rule>,
 	label_addrs: &HashMap<&str, u64>,
 	filepath: &Path,
+	current_address: u64,
 	for_relative_addr: Option<u64>,
 ) -> u64 {
 	match pair.as_rule() {
 		Rule::machine_register => parse_machine_register(pair.as_str()),
-		Rule::immediate => evaluate_immediate(pair, label_addrs, filepath, for_relative_addr),
+		Rule::immediate => evaluate_immediate(pair, label_addrs, filepath, current_address, for_relative_addr),
 		_ => panic!("Tried to parse machinr register or immediate that wasn't a machine register or immediate"),
 	}
 }
@@ -485,7 +535,7 @@ macro_rules! instruction_match_body {
 }
 
 macro_rules! instruction_body {
-	($($additional_ident:ident)* { $($arg:ident : $($ty:ident)|*),+ $(,)? $({ $(let $size_name:ident = size_of($($reg:ident),+ $(,)?) ;)* })? => [ $($value:tt)* ] $($(,)? $($rest_arg:ident : $($rest_ty:ident)|*),+ $(,)? $({ $($size_block:tt)* })? => $rest_value:tt)* $(,)? }) => {
+	($write_instr:ident $($additional_ident:ident)* { $($arg:ident : $($ty:ident)|*),+ $(,)? $({ $(let $size_name:ident = size_of($($reg:ident),+ $(,)?) ;)* })? => [ $($value:tt)* ] $($(,)? $($rest_arg:ident : $($rest_ty:ident)|*),+ $(,)? $({ $($size_block:tt)* })? => $rest_value:tt)* $(,)? }) => {
 		if $(matches!($arg, $(instruction_match_pattern!(_, $ty))|+))&&+ {
 			$(
 				$(
@@ -502,12 +552,12 @@ macro_rules! instruction_body {
 					_ => unreachable!(),
 				};
 			)+
-			instruction_encoding! { $($($size_name)*)? $($arg)+ $($additional_ident)* ; $($value)* }
+			instruction_encoding! { $write_instr $($($size_name)*)? $($arg)+ $($additional_ident)* ; $($value)* }
 		}
-		instruction_body! { $($additional_ident)* { $($($rest_arg : $($rest_ty)|*),+ $({ $($size_block)* })? => $rest_value)* }}
+		instruction_body! { $write_instr $($additional_ident)* { $($($rest_arg : $($rest_ty)|*),+ $({ $($size_block)* })? => $rest_value)* }}
 	};
-	($($additional_ident:ident)* $({})?) => {};
-	($($arg:ident : $($ty:ident)|*),* ; $($additional_ident:ident)* [ $($value:tt)* ]) => {
+	($write_instr:ident $($additional_ident:ident)* $({})?) => {};
+	($write_instr:ident $($arg:ident : $($ty:ident)|*),* ; $($additional_ident:ident)* [ $($value:tt)* ]) => {
 		if true $(&& matches!($arg, $(instruction_match_pattern!(_, $ty))|+))* {
 			$(
 				#[allow(non_snake_case)]
@@ -518,7 +568,7 @@ macro_rules! instruction_body {
 					_ => unreachable!(),
 				};
 			)*
-			instruction_encoding! { $($arg)* $($additional_ident)* ; $($value)* }
+			instruction_encoding! { $write_instr $($arg)* $($additional_ident)* ; $($value)* }
 		} else {
 			panic!("Internal instruction evaluation error")
 		}
@@ -540,14 +590,14 @@ fn main() {
 		},
 	};
 
-	let _output_path = cli.output.unwrap_or_else(|| {
+	let output_path = cli.output.unwrap_or_else(|| {
 		cli.source.with_extension(match cli.source.extension() {
 			Some(source) => {
 				let mut tmp = source.to_owned();
-				tmp.push(".o");
+				tmp.push(".bin");
 				tmp
 			},
-			None => OsString::from("o"),
+			None => OsString::from("bin"),
 		})
 	});
 
@@ -563,51 +613,136 @@ fn main() {
 	let mut label_addrs = HashMap::<&str, u64>::new();
 	let mut addr = 0u64;
 
-	// first, assign all the label addresses
-	for pair in pairs.clone() {
+	let mut peekable_pairs = pairs.clone();
+
+	// first, determine all addresses
+	while let Some(pair) = peekable_pairs.next() {
 		match pair.as_rule() {
 			Rule::label => {
-				label_addrs.insert(pair.clone().into_inner().next().unwrap().as_str(), addr);
+				// first, gather up all consecutive labels
+				let mut labels = vec![pair];
+				while let Some(next_pair) = peekable_pairs.peek() {
+					match next_pair.as_rule() {
+						Rule::label => labels.push(peekable_pairs.next().unwrap()),
+						_ => break,
+					}
+				}
+				// now check if we need to align the address (i.e. if the next item is an instruction)
+				match peekable_pairs.peek() {
+					Some(next_pair) if next_pair.as_rule() == Rule::instr => {
+						// align it to instruction size
+						addr = (addr + 3) & !3u64;
+					},
+					_ => {},
+				}
+				// now assign the same address to all the labels
+				for label in labels {
+					let label_name = label.into_inner().next().unwrap().as_str();
+					if let Some(_) = label_addrs.insert(label_name, addr) {
+						panic!("Duplicate label \"{}\"", label_name);
+					}
+				}
 			},
 			Rule::instr => {
+				// align it to instruction size
+				addr = (addr + 3) & !3u64;
+				// advance by one instruction
 				addr += 4;
+			},
+			Rule::directive => {
+				let dir = pair.into_inner().next().unwrap();
+				let mut dir_pairs = dir.clone().into_inner();
+
+				match dir.as_rule() {
+					Rule::directive_addr => {
+						let _name = dir_pairs.next().unwrap();
+						let new_addr = dir_pairs
+							.next()
+							.map(|immediate| {
+								evaluate_immediate(immediate, &label_addrs, &cli.source, addr, None)
+							})
+							.unwrap();
+
+						addr = new_addr;
+					},
+					Rule::directive_write => {
+						let size = next_instr_size(&mut dir_pairs).unwrap();
+						let immediate_count = dir_pairs.count() as u64;
+
+						addr += (size.byte_size() as u64) * immediate_count;
+					},
+					Rule::directive_def => {
+						let _name = dir_pairs.next().unwrap();
+						let name = dir_pairs.next().unwrap().as_str();
+						let val = dir_pairs
+							.next()
+							.map(|immediate| {
+								evaluate_immediate(immediate, &label_addrs, &cli.source, addr, None)
+							})
+							.unwrap();
+
+						label_addrs.insert(name, val);
+					},
+					_ => unreachable!(),
+				}
 			},
 			Rule::EOI => {},
 			_ => unreachable!(),
 		}
 	}
 
-	let next_immediate = |pairs: &mut Pairs<Rule>| {
+	let next_immediate = |pairs: &mut Pairs<Rule>, addr: u64| {
 		pairs
 			.next()
-			.map(|immediate| evaluate_immediate(immediate, &label_addrs, &cli.source, None))
+			.map(|immediate| evaluate_immediate(immediate, &label_addrs, &cli.source, addr, None))
 	};
 
 	#[allow(unused)]
-	let next_relative_immediate = |pairs: &mut Pairs<Rule>, relative_address: u64| {
+	let next_relative_immediate = |pairs: &mut Pairs<Rule>, addr: u64, relative_address: u64| {
 		pairs.next().map(|immediate| {
-			evaluate_immediate(immediate, &label_addrs, &cli.source, Some(relative_address))
+			evaluate_immediate(
+				immediate,
+				&label_addrs,
+				&cli.source,
+				addr,
+				Some(relative_address),
+			)
 		})
 	};
 
-	let next_argument = |pairs: &mut Pairs<Rule>| {
+	let next_byte_relative_immediate = |pairs: &mut Pairs<Rule>, addr: u64| {
+		let rel_addr = addr + 4;
 		pairs
 			.next()
-			.map(|argument| parse_argument(argument, &label_addrs, &cli.source, None))
+			.map(|immediate| evaluate_immediate(immediate, &label_addrs, &cli.source, addr, None))
+			.map(|result| result.wrapping_sub(rel_addr))
 	};
 
-	let next_relative_argument = |pairs: &mut Pairs<Rule>, relative_address: u64| {
+	let next_argument = |pairs: &mut Pairs<Rule>, addr: u64| {
+		pairs
+			.next()
+			.map(|argument| parse_argument(argument, &label_addrs, &cli.source, addr, None))
+	};
+
+	let next_relative_argument = |pairs: &mut Pairs<Rule>, addr: u64, relative_address: u64| {
 		pairs.next().map(|argument| {
-			parse_argument(argument, &label_addrs, &cli.source, Some(relative_address))
+			parse_argument(
+				argument,
+				&label_addrs,
+				&cli.source,
+				addr,
+				Some(relative_address),
+			)
 		})
 	};
 
-	let next_machine_register_or_immediate = |pairs: &mut Pairs<Rule>| {
+	let next_machine_register_or_immediate = |pairs: &mut Pairs<Rule>, addr: u64| {
 		pairs.next().map(|machine_register_or_immediate| {
 			parse_machine_register_or_immediate(
 				machine_register_or_immediate,
 				&label_addrs,
 				&cli.source,
+				addr,
 				None,
 			)
 		})
@@ -615,22 +750,91 @@ fn main() {
 
 	addr = 0;
 
+	let mut output_file = match std::fs::File::create(output_path) {
+		Ok(file) => file,
+		Err(err) => {
+			eprintln!("Failed to open output file: {}", err);
+			exit(1)
+		},
+	};
+
 	// now process each instruction
 	for pair in pairs {
-		if pair.as_rule() != Rule::instr {
-			continue;
+		match pair.as_rule() {
+			Rule::directive => {
+				let dir = pair.into_inner().next().unwrap();
+				let mut dir_pairs = dir.clone().into_inner();
+
+				match dir.as_rule() {
+					Rule::directive_addr => {
+						let _name = dir_pairs.next().unwrap();
+						let new_addr = dir_pairs
+							.next()
+							.map(|immediate| {
+								evaluate_immediate(immediate, &label_addrs, &cli.source, addr, None)
+							})
+							.unwrap();
+
+						addr = new_addr;
+					},
+					Rule::directive_write => {
+						let size = next_instr_size(&mut dir_pairs).unwrap();
+						let mut immediate_count = 0u64;
+
+						for dir_pair in dir_pairs {
+							let val =
+								evaluate_immediate(dir_pair, &label_addrs, &cli.source, addr, None);
+							let val = truncate_immediate(val, size.byte_size() * 8, false);
+							let bytes = val.to_le_bytes();
+							match output_file.write_all_at(
+								addr + (immediate_count * size.byte_size() as u64),
+								&bytes[0..size.byte_size() as usize],
+							) {
+								Ok(_) => {},
+								Err(err) => {
+									eprintln!("Failed to write to output file: {}", err);
+									exit(1);
+								},
+							}
+							immediate_count += 1;
+						}
+
+						addr += (size.byte_size() as u64) * immediate_count;
+					},
+					Rule::directive_def => {},
+					_ => unreachable!(),
+				}
+
+				continue;
+			},
+			Rule::instr => { /* handled below */ },
+			_ => continue,
 		}
 
+		// align it to instruction size
+		addr = (addr + 3) & !3u64;
+		// advance by one instruction
 		addr += 4;
+
+		let mut write_instruction = |encoded: u32| {
+			let bytes = encoded.to_le_bytes();
+			match output_file.write_all_at(addr - 4, &bytes) {
+				Ok(_) => {},
+				Err(err) => {
+					eprintln!("Failed to write to output file: {}", err);
+					exit(1);
+				},
+			}
+		};
 
 		let instr = pair.into_inner().next().unwrap();
 		let mut instr_pairs = instr.clone().into_inner();
 
 		instructions! {
-			pushs[.s] a:reg        => [11011100000000000000000000ssaaaa];
-			pushp[.s] a:reg, b:reg => [1101100000000000000000ssaaaabbbb];
-			pops[.s]  a:reg        => [11010100000000000000000000ssaaaa];
-			popp[.s]  a:reg, b:reg => [1101000000000000000000ssaaaabbbb];
+			pushs[.s] a:reg | null               => [1101110000000000000000000ssaaaaa];
+			pushp[.s] a:reg | null, b:reg | null => [11011000000000000000ssaaaaabbbbb];
+			pops[.s]  a:reg | null               => [1101010000000000000000000ssaaaaa];
+			popp[.s]  a:reg | null, b:reg | null => [1101000000000000000000ssaaaabbbb];
 
 			lds[.s] d:reg, a:reg        => [1100110000000000000000ssddddaaaa];
 			ldp[.s] d:reg, e:reg, a:reg => [110010000000000000ssddddeeeeaaaa];
@@ -638,6 +842,8 @@ fn main() {
 			stp[.s] a:reg, b:reg, c:reg => [110000000000000000ssaaaabbbbcccc];
 
 			ldi d:reg, a:imm16, [b:imm6], [c:imm2] => [10101100aaaaaaaaaaaaaaaabbbbbbcc];
+
+			ldr d:reg, a:rel22(next_byte_relative_immediate) => [001100ddddaaaaaaaaaaaaaaaaaaaaaa];
 
 			copy[.s] d:reg, S:reg => [1010100000000000000000ssddddSSSS];
 

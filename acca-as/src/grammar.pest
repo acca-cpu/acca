@@ -1,4 +1,4 @@
-root = _{ SOI ~ (label | instr)* ~ EOI }
+root = _{ SOI ~ (label | instr | directive)* ~ EOI }
 
 label = { ident ~ ":" }
 
@@ -12,6 +12,7 @@ instr = {
 	instr_sts |
 	instr_stp |
 	instr_ldi |
+	instr_ldr |
 	instr_copy |
 	instr_add_reg |
 	instr_add_imm |
@@ -48,6 +49,12 @@ instr = {
 	instr_unknown
 }
 
+directive = {
+	directive_addr |
+	directive_write |
+	directive_def
+}
+
 size = { "b" | "d" | "q" | "w" }
 size_suffix = ${ "." ~ size }
 
@@ -58,16 +65,17 @@ condition_suffix = ${ "." ~ condition }
 register_number = @{ ASCII_DIGIT | ("1" ~ ('0'..'5')) }
 register_name = @{ "sp" | "fp" | "lr" }
 register = ${ "r" ~ (register_number | register_name) ~ size? }
+register_no_size = ${ "r" ~ (register_number | register_name) }
 
 null = { "null" }
 register_or_null = _{ register | null }
 
-ident = @{ ASCII_ALPHA ~ ASCII_ALPHANUMERIC* }
+ident = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
 
-binary_literal = @{ ^"0b" ~ ASCII_BIN_DIGIT+ }
-octal_literal = @{ ^"0o" ~ ASCII_OCT_DIGIT+ }
-decimal_literal = @{ ^"0d"? ~ ASCII_DIGIT+ }
-hex_literal = @{ ^"0x" ~ ASCII_HEX_DIGIT+ }
+binary_literal = @{ ^"0b" ~ ASCII_BIN_DIGIT ~ (ASCII_BIN_DIGIT | "_")* }
+octal_literal = @{ ^"0o" ~ ASCII_OCT_DIGIT ~ (ASCII_DIGIT | "_")* }
+decimal_literal = @{ ^"0d"? ~ ASCII_DIGIT ~ (ASCII_DIGIT | "_")* }
+hex_literal = @{ ^"0x" ~ ASCII_HEX_DIGIT ~ (ASCII_HEX_DIGIT | "_")* }
 integer = { binary_literal | octal_literal | hex_literal | decimal_literal }
 
 boolean = { "true" | "false" }
@@ -83,6 +91,14 @@ machine_register = {
 	"ectable"
 }
 machine_register_literal = { "mreg" ~ "." ~ machine_register }
+
+current_address = { "$" }
+
+must_be_escaped_char = { "'" | "\\" }
+escapable_char = { must_be_escaped_char | "n" | "f" | "t" | "r" | "b" }
+normal_char = ${ "'" ~ (!must_be_escaped_char ~ ANY) ~ "'" }
+escaped_char = ${ "'\\" ~ escapable_char ~ "'" }
+character = { normal_char | escaped_char }
 
 immediate = { prefix* ~ primary ~ (infix ~ prefix* ~ primary)* }
 neg = { "-" }
@@ -100,7 +116,7 @@ shift_right_arithmetic = { ">>>" }
 shift_right_logical = { ">>" }
 prefix = _{ neg | not }
 infix = _{ add | sub | mul | div | rem | and | or | xor | shift_left | shift_right_arithmetic | shift_right_logical }
-primary = _{ integer | boolean | machine_register_literal | ident | "(" ~ immediate ~ ")" }
+primary = _{ integer | boolean | machine_register_literal | ident | current_address | character | "(" ~ immediate ~ ")" }
 
 WHITESPACE = _{ " " | "\t" | NEWLINE }
 COMMENT    = _{ "#" ~ (!NEWLINE ~ ANY)* }
@@ -134,9 +150,12 @@ instr_stp_name = ${ "stp" ~ size_suffix? }
 instr_stp = { instr_stp_name ~ register ~ "," ~ register ~ "," ~ register }
 
 instr_ldi_name = ${ "ldi" }
-instr_ldi = { instr_ldi_name ~ register ~ "," ~ immediate ~ ("," ~ immediate ~ ("," ~ immediate)?)? }
+instr_ldi = { instr_ldi_name ~ register_no_size ~ "," ~ immediate ~ ("," ~ immediate ~ ("," ~ immediate)?)? }
 
-instr_copy_name = ${ "copy" }
+instr_ldr_name = ${ "ldr" }
+instr_ldr = { instr_ldr_name ~ register_no_size ~ "," ~ immediate }
+
+instr_copy_name = ${ "copy" ~ size_suffix? }
 instr_copy = { instr_copy_name ~ register ~ "," ~ register }
 
 instr_add_name = ${ "add" ~ size_suffix? }
@@ -181,22 +200,22 @@ instr_bswap_name = ${ "bswap" ~ size_suffix? }
 instr_bswap = { instr_bswap_name ~ register ~ "," ~ register ~ ("," ~ immediate)? }
 
 instr_jmpa_name = ${ "jmpa" ~ condition_suffix? }
-instr_jmpa = { instr_jmpa_name ~ register }
+instr_jmpa = { instr_jmpa_name ~ register_no_size }
 
 instr_jmpr_name = ${ "jmpr" ~ condition_suffix? }
-instr_jmpr = { instr_jmpr_name ~ (register | immediate) }
+instr_jmpr = { instr_jmpr_name ~ (register_no_size | immediate) }
 
 instr_cjmpa_name = ${ "cjmpa" ~ condition_suffix ~ size_suffix? }
-instr_cjmpa = { instr_cjmpa_name ~ register ~ "," ~ register ~ "," ~ register }
+instr_cjmpa = { instr_cjmpa_name ~ register_no_size ~ "," ~ register ~ "," ~ register }
 
 instr_cjmpr_name = ${ "cjmpr" ~ condition_suffix ~ size_suffix? }
-instr_cjmpr = { instr_cjmpr_name ~ (register | immediate) ~ "," ~ register ~ "," ~ register }
+instr_cjmpr = { instr_cjmpr_name ~ (register_no_size | immediate) ~ "," ~ register ~ "," ~ register }
 
 instr_calla_name = ${ "calla" ~ condition_suffix? }
-instr_calla = { instr_calla_name ~ register }
+instr_calla = { instr_calla_name ~ register_no_size }
 
 instr_callr_name = ${ "callr" ~ condition_suffix? }
-instr_callr = { instr_callr_name ~ (register | immediate) }
+instr_callr = { instr_callr_name ~ (register_no_size | immediate) }
 
 instr_ret_name = ${ "ret" }
 instr_ret = { instr_ret_name }
@@ -217,10 +236,23 @@ instr_nop_name = ${ "nop" }
 instr_nop = { instr_nop_name }
 
 instr_ldm_name = ${ "ldm" }
-instr_ldm = { instr_ldm_name ~ register ~ "," ~ (machine_register | immediate) }
+instr_ldm = { instr_ldm_name ~ register_no_size ~ "," ~ (machine_register | immediate) }
 
 instr_stm_name = ${ "stm" }
-instr_stm = { instr_stm_name ~ (machine_register | immediate) ~ "," ~ register }
+instr_stm = { instr_stm_name ~ (machine_register | immediate) ~ "," ~ register_no_size }
 
 instr_unknown_name = { ASCII_ALPHA+ }
 instr_unknown = { instr_unknown_name ~ (!NEWLINE ~ ANY)* }
+
+//
+// directives
+//
+
+directive_addr_name = ${ ".addr" }
+directive_addr = { directive_addr_name ~ immediate }
+
+directive_write_name = ${ ".write" ~ size_suffix }
+directive_write = { directive_write_name ~ immediate ~ ("," ~ immediate)* }
+
+directive_def_name = ${ ".def" }
+directive_def = { directive_def_name ~ ident ~ immediate }
