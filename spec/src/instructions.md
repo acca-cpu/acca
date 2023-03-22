@@ -27,6 +27,37 @@ valid instruction. It is also illegal to use registers with a different size
 suffix than the one specified in the instruction. For example, `pushs.b r0d`
 is not a valid instruction, while `pushs.b r0` and `pushs.b r0b` are both valid.
 
+## General Notes
+
+### Absolute and Relative Addresses
+
+An absolute address is a 64-bit byte address indicating a location in
+memory. Such addresses can only be specified in registers; they are too wide
+to specify in an immediate. For example, the absolute address `0xabcd`
+corresponds to the memory address `0xabcd`.
+
+A relative address is an address relative to the instruction pointer, specified
+in multiples of the instruction width (i.e. multiples of 4 bytes). For example,
+the relative address `0xabcd` corresponds to the memory address `IP + (0xabcd * 4)` or `IP + 0x02AF34`, where `IP` is the instruction pointer.
+
+When calculating a relative address, the instruction pointer is first
+incremented past the jump instruction and then the relative address is added to
+the instruction pointer. For example, for `jmpr -1`, the instruction pointer is
+first incremented to the next instruction, then `-1` is added to it, moving it
+back to the `jmpr -1` instruction.
+
+### Conditions
+
+A suffix of `.c` indicates that an instruction requires a condition; a suffix of
+`[.c]` indicates that it can optionally take a condition.
+
+Valid conditions are one of the following:
+
+  * `c` or `nc` for carry bit (`C`) set or unset (respectively)
+  * `z` or `nz` for zero bit (`Z`) set or unset (respectively)
+  * `o` or `no` for overflow bit (`O`) set or unset (respectively)
+  * `s` or `ns` for sign bit (`S`) set or unset (respectively)
+
 ## Encoding Notes
 
 ### Booleans
@@ -69,7 +100,7 @@ required to be `1` as well. The following tables may help:
 
 ## Memory
 
-### `pushs[.s] a:reg`
+### `pushs[.s] a:reg | null`
 
 "push single"
 
@@ -89,11 +120,11 @@ performed by this instruction.
 
 #### Encoding
 
-|  31-26   |          25-6          |  5-4  |  3-0   |
-| -------- | ---------------------- | ----- | ------ |
-| `110111` | `00000000000000000000` | `ss`  | `aaaa` |
+|  31-26   |         25-7          |  6-5  |   4-0   |
+| -------- | --------------------- | ----- | ------- |
+| `110111` | `0000000000000000000` | `ss`  | `aaaaa` |
 
-### `pushp[.s] a:reg, b:reg`
+### `pushp[.s] a:reg | null, b:reg | null`
 
 "push pair"
 
@@ -113,11 +144,11 @@ this instruction.
 
 #### Encoding
 
-|  31-26   |       25-10        |  9-8  |  7-4   |  3-0   |
-| -------- | ------------------ | ----- | ------ | ------ |
-| `110110` | `0000000000000000` | `ss`  | `aaaa` | `bbbb` |
+|  31-26   |      25-12       | 11-10 |   9-5   |   4-0   |
+| -------- | ---------------- | ----- | ------- | ------- |
+| `110110` | `00000000000000` | `ss`  | `aaaaa` | `bbbbb` |
 
-### `pops[.s] a:reg`
+### `pops[.s] a:reg | null`
 
 "pop single"
 
@@ -134,11 +165,11 @@ value of the stack pointer from the stack; the increment is skipped/ignored.
 
 #### Encoding
 
-|  31-26   |          25-6          |  5-4  |  3-0   |
-| -------- | ---------------------- | ----- | ------ |
-| `110101` | `00000000000000000000` | `ss`  | `aaaa` |
+|  31-26   |         25-7          |  6-5  |   4-0   |
+| -------- | --------------------- | ----- | ------- |
+| `110101` | `0000000000000000000` | `ss`  | `aaaaa` |
 
-### `popp[.s] a:reg, b:reg`
+### `popp[.s] a:reg | null, b:reg | null`
 
 "pop pair"
 
@@ -159,9 +190,9 @@ from the second load (`b`).
 
 #### Encoding
 
-|  31-26   |       25-10        |  9-8  |  7-4   |  3-0   |
-| -------- | ------------------ | ----- | ------ | ------ |
-| `110100` | `0000000000000000` | `ss`  | `aaaa` | `bbbb` |
+|  31-26   |      25-12       | 11-10 |   9-5   |   4-0   |
+| -------- | ---------------- | ----- | ------- | ------- |
+| `110100` | `00000000000000` | `ss`  | `aaaaa` | `bbbbb` |
 
 ### `lds[.s] d:reg, a:reg`
 
@@ -275,6 +306,27 @@ d |= (a as u64) << shift;
 |  31-26   | 25-24 |        23-8        |   7-2    | 1-0  |
 | -------- | ----- | ------------------ | -------- | ---- |
 | `101011` | `00`  | `aaaaaaaaaaaaaaaa` | `bbbbbb` | `cc` |
+
+### `ldr d:reg, a:imm22`
+
+"load relative immediate"
+
+This instruction calculates an address `a` relative to the instruction pointer
+and loads it into register `d`.
+
+This calculation is similarly to other relative address calculations (as
+described in [Absolute and Relative Addresses][abs_and_rel_addr]), except that
+instead of being in multiples of the instruction size (i.e. 4 bytes), it's
+calculated in bytes. Thus, the range is limited to +2,097,151 and -2,097,152
+**bytes**, not instructions. Note that, like other relative address
+calculations, the instruction pointer is still advanced by 4 bytes *before* the
+calculation.
+
+#### Encoding
+
+|  31-26   | 25-22  |           21-0           |
+| -------- | ------ | ------------------------ |
+| `001100` | `dddd` | `aaaaaaaaaaaaaaaaaaaaaa` |
 
 ### `copy[.s] d:reg, s:reg`
 
@@ -781,35 +833,6 @@ modify the CPU flags register as follows:
 
 ## Conditionals and Control Flow
 
-### Absolute and Relative Addresses
-
-An absolute address is a 64-bit byte address indicating a location in
-memory. Such addresses can only be specified in registers; they are too wide
-to specify in an immediate. For example, the absolute address `0xabcd`
-corresponds to the memory address `0xabcd`.
-
-A relative address is an address relative to the instruction pointer, specified
-in multiples of the instruction width (i.e. multiples of 4 bytes). For example,
-the relative address `0xabcd` corresponds to the memory address `IP + (0xabcd * 4)` or `IP + 0x02AF34`, where `IP` is the instruction pointer.
-
-When calculating a relative address, the instruction pointer is first
-incremented past the jump instruction and then the relative address is added to
-the instruction pointer. For example, for `jmpr -1`, the instruction pointer is
-first increment to the next instruction, then `-1` is added to it, moving it
-back to the `jmpr -1` instruction.
-
-### Conditions
-
-A suffix of `.c` indicates that an instruction requires a condition; a suffix of
-`[.c]` indicates that it can optionally take a condition.
-
-Valid conditions are one of the following:
-
-  * `c` or `nc` for carry bit (`C`) set or unset (respectively)
-  * `z` or `nz` for zero bit (`Z`) set or unset (respectively)
-  * `o` or `no` for overflow bit (`O`) set or unset (respectively)
-  * `s` or `ns` for sign bit (`S`) set or unset (respectively)
-
 ### `jmpa[.c] a:reg`
 
 "jump to absolute register"
@@ -834,7 +857,7 @@ This instruction jumps to the relative address in register `a`.
 | -------- | -------------------- | ------ | ------ |
 | `010010` | `000000000000000000` | `cccc` | `aaaa` |
 
-### `jmpr[.c] a:imm22`
+### `jmpr[.c] a:rel22`
 
 "jump to relative immediate"
 
@@ -888,7 +911,7 @@ If the condition evaluates to true, a jump is performed to register `a` like the
 | -------- | ----------- | ----- | ----- | ------ | ------ | ------ |
 | `001101` | `000000000` | `ccc` | `ss`  | `aaaa` | `bbbb` | `CCCC` |
 
-### `cjmpr.c[.s] a:imm13, b:reg, C:reg`
+### `cjmpr.c[.s] a:rel13, b:reg, C:reg`
 
 "compare and jump to relative immediate"
 
@@ -938,7 +961,7 @@ register (`r15` or `rlr`) and then performs a jump like
 | -------- | -------------------- | ------ | ------ |
 | `001001` | `000000000000000000` | `cccc` | `aaaa` |
 
-### `callr[.c] a:imm22`
+### `callr[.c] a:rel22`
 
 "call relative immediate"
 
@@ -1077,3 +1100,4 @@ identified by `a`.
 [jmpr_register]: #jmprc-areg
 [jmpr_immediate]: #jmprc-aimm23
 [registers]: #registers
+[abs_and_rel_addr]: #absolute-and-relative-addresses
