@@ -303,9 +303,9 @@ d |= (a as u64) << shift;
 
 #### Encoding
 
-|  31-26   | 25-24 |        23-8        |   7-2    | 1-0  |
-| -------- | ----- | ------------------ | -------- | ---- |
-| `101011` | `00`  | `aaaaaaaaaaaaaaaa` | `bbbbbb` | `cc` |
+|  31-26   |       25-10        |   9-4    |  3-0   |
+| -------- | ------------------ | -------- | ------ |
+| `1110cc` | `aaaaaaaaaaaaaaaa` | `bbbbbb` | `dddd` |
 
 ### `ldr d:reg, a:imm22`
 
@@ -350,7 +350,7 @@ performed without a carry; if `c` is `1`/`true`, the current value of the carry
 flag (`C`) is used as a carry, i.e. a third (one-bit) addend.
 
 Without a carry, the operation is `a + b = d`. With a carry, the operation
-is `(a + b) + C = d`.
+is `(a + b) + C = d` (where `C` is the CPU carry flag).
 
 If `b` is an immediate value, it is zero-extended if necessary to fit the bit
 width of the operation.
@@ -407,8 +407,8 @@ default), the subtraction is performed without a borrow; if `B` is `1`/`true`,
 the current value of the carry flag (`C`) is used as a borrow, i.e. a second
 (one-bit) subtrahend.
 
-Without a borrow, the operation is `a - b = d`. With a carry, the operation is
-`(a - b) - C = d`.
+Without a borrow, the operation is `a - b = d`. With a borrow, the operation is
+`(a - b) - C = d` (where `C` is the CPU carry flag).
 
 Note that `d` may also be `null`; in this case, the result of the operation is
 discarded. This is useful when combined with `f` equal to `1`/`true` as it
