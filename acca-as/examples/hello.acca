@@ -1,4 +1,4 @@
-.def mreg_vm_console 0xdead_01
+.def mreg_vm_console 0xdead_1
 
 .addr 0x0400
 entry:
