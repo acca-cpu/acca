@@ -841,7 +841,7 @@ fn main() {
 			sts[.s] a:reg, b:reg        => [1100010000000000000000ssaaaabbbb];
 			stp[.s] a:reg, b:reg, c:reg => [110000000000000000ssaaaabbbbcccc];
 
-			ldi d:reg, a:imm16, [b:imm6], [c:imm2] => [10101100aaaaaaaaaaaaaaaabbbbbbcc];
+			ldi d:reg, a:imm16, [b:imm6], [c:imm2] => [1110ccaaaaaaaaaaaaaaaabbbbbbdddd];
 
 			ldr d:reg, a:rel22(next_byte_relative_immediate) => [001100ddddaaaaaaaaaaaaaaaaaaaaaa];
 
