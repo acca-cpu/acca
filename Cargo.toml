@@ -3,4 +3,5 @@ members = [
 	"acca-emu",
 	"acca-as",
 	"acca-as-proc-macro",
+	"acca-emu-proc-macro",
 ]

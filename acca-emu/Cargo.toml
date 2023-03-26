@@ -3,3 +3,11 @@ name = "acca-emu"
 version = "0.1.0"
 edition = "2021"
 license = "MPL-2.0"
+
+[dependencies]
+auto_ops = "0.3.0"
+clap = { version = "4.1.9", features = ["derive"] }
+memmap2 = "0.5.10"
+acca-emu-proc-macro = { path = "../acca-emu-proc-macro" }
+byteorder = "1.4.3"
+num_enum = "0.5.11"
