@@ -1,0 +1,319 @@
+.def mreg_vm_console 0xdead_1
+
+.addr 0x0000
+ectable:
+	ectable_pl0:
+		ectable_pl0_unknown:
+			.write.w 0
+			.write.w 0
+			.write.w 0
+		ectable_pl0_invalid_instr:
+			.write.w 0
+			.write.w 0
+			.write.w 0
+		ectable_pl0_debug:
+			.write.w 0
+			.write.w 0
+			.write.w 0
+		ectable_pl0_user:
+			.write.w 0
+			.write.w 0
+			.write.w 0
+		ectable_pl0_invalid_op:
+			.write.w 0
+			.write.w 0
+			.write.w 0
+		ectable_pl0_instr_load_err:
+			.write.w 0
+			.write.w 0
+			.write.w 0
+		ectable_pl0_data_load_err:
+			.write.w 0
+			.write.w 0
+			.write.w 0
+		ectable_pl0_interrupt:
+			.write.w 0
+			.write.w 0
+			.write.w 0
+	ectable_pl1:
+		ectable_pl1_unknown:
+			.write.w 0
+			.write.w 0
+			.write.w 0
+		ectable_pl1_invalid_instr:
+			.write.w 0
+			.write.w 0
+			.write.w 0
+		ectable_pl1_debug:
+			.write.w 0
+			.write.w 0
+			.write.w 0
+		ectable_pl1_user:
+			.write.w 0
+			.write.w 0
+			.write.w 0
+		ectable_pl1_invalid_op:
+			.write.w 0
+			.write.w 0
+			.write.w 0
+		ectable_pl1_instr_load_err:
+			.write.w 0
+			.write.w 0
+			.write.w 0
+		ectable_pl1_data_load_err:
+			.write.w 0
+			.write.w 0
+			.write.w 0
+		ectable_pl1_interrupt:
+			.write.w 0
+			.write.w 0
+			.write.w 0
+
+.addr 0x0200
+evtable:
+	evtable_pl0:
+		.addr 0x0200
+		evtable_pl0_unknown:
+			udf
+		.addr 0x0220
+		evtable_pl0_invalid_instr:
+			udf
+		.addr 0x0240
+		evtable_pl0_debug:
+			udf
+		.addr 0x0260
+		evtable_pl0_user:
+			jmpr handle_exc_pl0_user
+		.addr 0x0280
+		evtable_pl0_invalid_op:
+			udf
+		.addr 0x02a0
+		evtable_pl0_instr_load_err:
+			udf
+		.addr 0x02c0
+		evtable_pl0_data_load_err:
+			udf
+		.addr 0x02e0
+		evtable_pl0_interrupt:
+			udf
+	evtable_pl1:
+		.addr 0x0300
+		evtable_pl1_unknown:
+			udf
+		.addr 0x0320
+		evtable_pl1_invalid_instr:
+			udf
+		.addr 0x0340
+		evtable_pl1_debug:
+			udf
+		.addr 0x0360
+		evtable_pl1_user:
+			udf
+		.addr 0x0380
+		evtable_pl1_invalid_op:
+			udf
+		.addr 0x03a0
+		evtable_pl1_instr_load_err:
+			udf
+		.addr 0x03c0
+		evtable_pl1_data_load_err:
+			udf
+		.addr 0x03e0
+		evtable_pl1_interrupt:
+			udf
+
+.addr 0x0400
+entry:
+	# load some arbitrary address into the stack pointer register
+	# (clear register before, then load 0x0100 << 16 == 0x0100_0000)
+	# note that this is the *top* of the stack; we consider the stack
+	# to be from 0x0100_0000 to 0x00ff_0000 (64KiB)
+	ldi rsp, 0x0100, 16, 3
+
+	# load the ectable into the ectable mreg
+	ldr r9, ectable
+	stm ectable, r9
+
+	# load the evtable into the evtable mreg
+	ldr r9, evtable
+	stm evtable, r9
+
+	# load the address of the string into argument 1
+	ldr r0, hello_world_str
+	callr print_string
+
+	# trigger a user exception
+	exc 0x1234
+
+	ldr r0, after_exc_str
+	callr print_string
+loop:
+	jmpr loop # or `jmpr $`
+
+# void print_string(char* string)
+#
+# string: r0
+print_string:
+	# prologue: save frame pointer to stack, then update frame pointer with current stack pointer
+	# since we have to push 16 bytes to the stack to keep it aligned, we also go ahead and save the link register
+	pushp rfp, rlr
+	copy rfp, rsp
+
+print_string_loop:
+	# load the character
+	lds r9b, r0
+
+	# check if it's null (0)
+	# jump out of the loop if it is
+	sub null, r9b, 0, 0, 0, 0, 1
+	jmpr.z print_string_loop_done
+
+	# write the character to the VM console
+	# (only the lowest 8 bits are actually used, which is our character)
+	stm mreg_vm_console, r9
+
+	# increment the pointer
+	add r0, r0, 1
+
+	# continue the loop
+	jmpr print_string_loop
+print_string_loop_done:
+
+	# epilogue: restore stack pointer from frame pointer, then restore frame pointer from stack
+	# as noted in the prologue, we also save the link register (since we have to push 16 bytes anyways)
+	copy rsp, rfp
+	popp rfp, rlr
+	ret
+
+# void print_u64(uint64_t value)
+#
+# value: r0
+print_u64:
+	pushp rfp, rlr
+	copy rfp, rsp
+
+	# set up a small array on the stack to store characters
+	sub rsp, rsp, 32
+
+	# and set up a pointer to the current character
+	copy r7, rsp
+
+	# also store the base we're using into r8 (so we can divide with it)
+	ldi r8, 10, 0, 3
+
+	# check if the value is 0
+	# in that case, just print 0
+	sub null, r0, 0, 0, 0, 0, 1
+	jmpr.nz print_u64_loop
+
+	# the value is 0
+	ldi r9, '0'
+	stm mreg_vm_console, r9
+	jmpr print_u64_done
+
+print_u64_loop:
+	# check if we're done (if the value is 0)
+	sub null, r0, 0, 0, 0, 0, 1
+	jmpr.z print_u64_loop_done
+
+	# get this digit
+	# r0 / 10 -> r0 (rem -> r9)
+	div r0, r9, r0, r8
+
+	# convert it to a character
+	add r9b, r9b, '0'
+
+	# store it in the array
+	sts r7, r9b
+
+	# increment the pointer
+	add r7, r7, 1
+
+	# continue the loop
+	jmpr print_u64_loop
+
+print_u64_loop_done:
+	# we now have to print the characters in reverse order
+
+print_u64_char_loop:
+	# decrement the pointer
+	sub r7, r7, 1
+
+	# load the character from the array
+	lds r9b, r7
+
+	# print it
+	stm mreg_vm_console, r9
+
+	# check if we're done (if the pointer is equal to rsp)
+	sub null, r7, rsp, 0, 1
+	jmpr.z print_u64_done
+
+	# continue the loop
+	jmpr print_u64_char_loop
+
+print_u64_done:
+	copy rsp, rfp
+	popp rfp, rlr
+	ret
+
+#
+# void handle_exc_pl0_user(void)
+#
+handle_exc_pl0_user:
+	# save all registers
+	pushp  r0,  r1
+	pushp  r2,  r3
+	pushp  r4,  r5
+	pushp  r6,  r7
+	pushp  r8,  r9
+	pushp r10, r11
+	pushp r12, r13
+	pushp r14, r15
+
+	# read the exception info
+	ldm r7, einfo
+
+	# make sure the ID is correct
+	and.b r9, r7, 7
+	sub null, r9b, 3, 0, 0, 0, 1
+	jmpr.z handle_exc_pl0_user_valid_exc_id
+
+handle_exc_pl0_user_invalid_exc_id:
+	udf
+handle_exc_pl0_user_valid_exc_id:
+	# load the user value
+	shr r8, r7, 3
+
+	# load the "user exception" string to print it
+	ldr r0, user_value_str
+	callr print_string
+
+	# print it
+	copy r0, r8
+	callr print_u64
+
+	# print a newline
+	ldi r9, '\n'
+	stm mreg_vm_console, r9
+
+	# restore all registers
+	popp r14, r15
+	popp r12, r13
+	popp r10, r11
+	popp  r8,  r9
+	popp  r6,  r7
+	popp  r4,  r5
+	popp  r2,  r3
+	popp  r0,  r1
+
+	eret
+
+hello_world_str:
+	.write.b 'H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '\n', 0
+
+after_exc_str:
+	.write.b 'A', 'f', 't', 'e', 'r', ' ', 'e', 'x', 'c', '\n', 0
+
+user_value_str:
+	.write.b 'G', 'o', 't', ' ', 'u', 's', 'e', 'r', ' ', 'e', 'x', 'c', 'e', 'p', 't', 'i', 'o', 'n', ':', ' ', 0
