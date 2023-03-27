@@ -62,7 +62,7 @@ condition = @{ "n"? ~ ("c" | "z" | "o" | "s") }
 condition_suffix = ${ "." ~ condition }
 
 // accept numbers 0 through 15
-register_number = @{ ASCII_DIGIT | ("1" ~ ('0'..'5')) }
+register_number = @{ ("1" ~ ('0'..'5')) | ASCII_DIGIT }
 register_name = @{ "sp" | "fp" | "lr" }
 register = ${ "r" ~ (register_number | register_name) ~ size? }
 register_no_size = ${ "r" ~ (register_number | register_name) }
@@ -138,16 +138,16 @@ instr_popp_name = ${ "popp" ~ size_suffix? }
 instr_popp = { instr_popp_name ~ register ~ "," ~ register }
 
 instr_lds_name = ${ "lds" ~ size_suffix? }
-instr_lds = { instr_lds_name ~ register ~ "," ~ register }
+instr_lds = { instr_lds_name ~ register ~ "," ~ register_no_size }
 
 instr_ldp_name = ${ "ldp" ~ size_suffix? }
-instr_ldp = { instr_ldp_name ~ register ~ "," ~ register ~ "," ~ register }
+instr_ldp = { instr_ldp_name ~ register ~ "," ~ register ~ "," ~ register_no_size }
 
 instr_sts_name = ${ "sts" ~ size_suffix? }
-instr_sts = { instr_sts_name ~ register ~ "," ~ register }
+instr_sts = { instr_sts_name ~ register_no_size ~ "," ~ register }
 
 instr_stp_name = ${ "stp" ~ size_suffix? }
-instr_stp = { instr_stp_name ~ register ~ "," ~ register ~ "," ~ register }
+instr_stp = { instr_stp_name ~ register_no_size ~ "," ~ register ~ "," ~ register }
 
 instr_ldi_name = ${ "ldi" }
 instr_ldi = { instr_ldi_name ~ register_no_size ~ "," ~ immediate ~ ("," ~ immediate ~ ("," ~ immediate)?)? }
@@ -241,8 +241,8 @@ instr_ldm = { instr_ldm_name ~ register_no_size ~ "," ~ (machine_register | imme
 instr_stm_name = ${ "stm" }
 instr_stm = { instr_stm_name ~ (machine_register | immediate) ~ "," ~ register_no_size }
 
-instr_unknown_name = { ASCII_ALPHA+ }
-instr_unknown = { instr_unknown_name ~ (!NEWLINE ~ ANY)* }
+instr_unknown_name = @{ ASCII_ALPHA+ }
+instr_unknown = ${ instr_unknown_name ~ (!NEWLINE ~ ANY)* }
 
 //
 // directives
