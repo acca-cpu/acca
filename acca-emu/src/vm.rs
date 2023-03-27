@@ -5,9 +5,18 @@ use memmap2::MmapMut;
 
 use super::util::*;
 
+use bitflags::bitflags;
+
+bitflags! {
+	#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+	struct ExceptionConfigurationFlags: u64 {
+		const USE_STACK = 1;
+	}
+}
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct ExceptionConfigurationEntry {
-	flags: u64,
+	flags: ExceptionConfigurationFlags,
 	stack_pointer: VMAddress,
 	stack_size: u64,
 }
@@ -20,6 +29,8 @@ pub(crate) struct ExceptionConfigurationTable {
 
 #[derive(Debug)]
 pub(crate) struct VM {
+	print_instructions: bool,
+
 	memory: MmapMut,
 	register_file: RegisterFile,
 	flags: CPUFlags,
@@ -37,31 +48,41 @@ pub(crate) struct VM {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
 enum Exception {
-	Unknown,
-	InvalidInstruction,
-	Debug,
-	User(u16),
-	InvalidOperation,
-	InstructionLoadError(VMAddress),
+	Unknown = 0,
+	InvalidInstruction = 1,
+	Debug = 2,
+	User(u16) = 3,
+	InvalidOperation = 4,
+	InstructionLoadError = 5,
 	DataLoadError {
 		address: VMAddress,
 		write: bool,
 		byte_size: u16,
-	},
-	Interrupt(u64),
+	} = 6,
+	Interrupt(u64) = 7,
+}
+
+impl Exception {
+	pub fn id(&self) -> u8 {
+		// SAFETY: this enum is a `repr(u8)` enum, meaning the first member
+		//         of all its variants is a `u8`. therefore, we can safely
+		//         cast the reference to a `u8` pointer and read from it.
+		unsafe { *((self as *const _) as *const u8) }
+	}
 }
 
 impl ExceptionConfigurationEntry {
 	pub fn validate(&self) -> bool {
-		(self.flags & !1) == 0
+		ExceptionConfigurationFlags::from_bits(self.flags.bits()).is_some()
 	}
 }
 
 impl Default for ExceptionConfigurationEntry {
 	fn default() -> Self {
 		Self {
-			flags: 0,
+			flags: ExceptionConfigurationFlags::empty(),
 			stack_pointer: VMAddress::from(0),
 			stack_size: 0,
 		}
@@ -71,6 +92,8 @@ impl Default for ExceptionConfigurationEntry {
 impl VM {
 	pub fn new(memory_size: usize) -> Option<Self> {
 		Some(Self {
+			print_instructions: false,
+
 			memory: MmapMut::map_anon(memory_size).ok()?,
 			register_file: RegisterFile::new(),
 			flags: CPUFlags::new(),
@@ -86,6 +109,10 @@ impl VM {
 
 			ectable: Default::default(),
 		})
+	}
+
+	pub fn set_print_instructions(&mut self, print_instructions: bool) {
+		self.print_instructions = print_instructions;
 	}
 
 	pub fn load_file(
@@ -120,7 +147,7 @@ impl VM {
 			Some(bytes) => u32::from_le_bytes(bytes.try_into().unwrap()),
 			None => {
 				return self
-					.take_exception(Exception::InstructionLoadError(self.instruction_pointer))
+					.take_exception(Exception::InstructionLoadError)
 			},
 		};
 
@@ -464,11 +491,11 @@ impl VM {
 				let (result_quot, result_rem) = if signed {
 					let lhs = self.register_file[lhs].get_signed(size);
 					let rhs = self.register_file[rhs].get_signed(size);
-					((lhs * rhs) as u64, (lhs % rhs) as u64)
+					((lhs / rhs) as u64, (lhs % rhs) as u64)
 				} else {
 					let lhs = self.register_file[lhs].get_unsigned(size);
 					let rhs = self.register_file[rhs].get_unsigned(size);
-					(lhs * rhs, lhs % rhs)
+					(lhs / rhs, lhs % rhs)
 				};
 
 				if quot != rem {
@@ -630,7 +657,7 @@ impl VM {
 				let too_big = rhs >= size.bit_size() as u64;
 
 				let result = if too_big {
-					if signed {
+					if signed && lhs.bit_as_bool(size.msb_index() as u64) {
 						ALL_BITS
 					} else {
 						0
@@ -661,7 +688,7 @@ impl VM {
 				let too_big = rhs >= size.bit_size() as u64;
 
 				let result = if too_big {
-					if signed {
+					if signed && lhs.bit_as_bool(size.msb_index() as u64) {
 						ALL_BITS
 					} else {
 						0
@@ -937,11 +964,59 @@ impl VM {
 
 	fn take_exception(&mut self, exception: Exception) {
 		println!(
-			"Exception ({:?}) at {:#x}",
+			"***Exception ({:?}) at {:#x}***",
 			exception,
 			u64::from(self.instruction_pointer)
 		);
-		todo!()
+
+		self.eflags = self.flags;
+		self.elr = self.instruction_pointer;
+		self.flags.set_exceptions_enabled(false);
+		self.flags.set_privilege_level(PrivilegeLevel::PL0);
+		self.esp = self.register_file[RegisterID::SP].get_address();
+
+		self.einfo = match exception {
+			Exception::Unknown => 0,
+			Exception::InvalidInstruction => 1,
+			Exception::Debug => 2,
+			Exception::User(val) => 3 | ((val as u64) << 3),
+			Exception::InvalidOperation => 4,
+			Exception::InstructionLoadError => 5,
+			Exception::DataLoadError {
+				address: _,
+				write,
+				byte_size,
+			} => 6 | (if write { 1 << 3 } else { 0 }) | ((byte_size as u64) << 4),
+			Exception::Interrupt(val) => 7 | (val << 3),
+		};
+
+		self.eaddr = match exception {
+			Exception::DataLoadError { address, .. } => address,
+			_ => 0.into(),
+		};
+
+		let ectable_pl = match self.eflags.privilege_level() {
+			PrivilegeLevel::PL0 => &self.ectable.pl0,
+			PrivilegeLevel::PL1 => &self.ectable.pl1,
+		};
+		let entry = &ectable_pl[exception.id() as usize];
+
+		let rsp = self.register_file[RegisterID::SP].get();
+		let stack_base = u64::from(entry.stack_pointer);
+		let stack_top = u64::from(entry.stack_pointer + entry.stack_size);
+
+		if entry.flags.contains(ExceptionConfigurationFlags::USE_STACK)
+			&& (rsp < stack_base || rsp > stack_top)
+		{
+			self.register_file[RegisterID::SP] = stack_top.into();
+		}
+
+		let pl_offset: u64 = match self.eflags.privilege_level() {
+			PrivilegeLevel::PL0 => 0,
+			PrivilegeLevel::PL1 => 1,
+		} * 256;
+		let exc_offset = (exception.id() as u64) * 32;
+		self.instruction_pointer = self.evtable_addr + pl_offset + exc_offset;
 	}
 
 	pub fn run(mut self) -> ! {

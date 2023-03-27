@@ -29,6 +29,7 @@ version = "0.1.0"
 dependencies = [
  "acca-emu-proc-macro",
  "auto_ops",
+ "bitflags 2.0.2",
  "byteorder",
  "clap",
  "memmap2",

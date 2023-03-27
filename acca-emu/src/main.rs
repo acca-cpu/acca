@@ -17,6 +17,9 @@ use clap::Parser as ClapParser;
 #[command(author, version, about, long_about = None)]
 struct Args {
 	image: PathBuf,
+
+	#[arg(long)]
+	print_instructions: bool,
 }
 
 const VM_MEMORY_SIZE: usize = /* 32MiB */ 32 * 1024 * 1024;
@@ -53,6 +56,8 @@ fn main() {
 			},
 		}
 	}
+
+	vm.set_print_instructions(cli.print_instructions);
 
 	vm.run()
 }

@@ -11,3 +11,4 @@ memmap2 = "0.5.10"
 acca-emu-proc-macro = { path = "../acca-emu-proc-macro" }
 byteorder = "1.4.3"
 num_enum = "0.5.11"
+bitflags = "2.0.2"

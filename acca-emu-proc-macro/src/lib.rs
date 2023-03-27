@@ -92,7 +92,6 @@ struct Parameter {
 
 #[derive(Debug, Clone)]
 struct Instruction {
-	#[allow(dead_code)]
 	name: Ident,
 	encoding_span: Span,
 	bits: [InstructionBit; 32],
@@ -392,9 +391,15 @@ pub fn instructions(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 			}
 		});
 
+		let instr_name = instr.name.to_string();
+
 		result = quote! {
 			#result
 			_ if (encoded & #required_mask) == #required_mask_value => {
+				if self.print_instructions {
+					println!(concat!("{:#x} @ ", #instr_name), u64::from(self.instruction_pointer));
+				}
+
 				#(#vars)*
 				#body
 			},
