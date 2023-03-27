@@ -29,7 +29,7 @@ print_string_loop:
 
 	# check if it's null (0)
 	# jump out of the loop if it is
-	sub null, r9b, 0, 0, 0, 0, 1
+	cmp r9b, 0
 	jmpr.z print_string_loop_done
 
 	# write the character to the VM console
