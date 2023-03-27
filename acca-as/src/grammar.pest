@@ -46,6 +46,9 @@ instr = {
 	instr_ldm |
 	instr_stm |
 
+	instr_pseudo_cmp_reg |
+	instr_pseudo_cmp_imm |
+
 	instr_unknown
 }
 
@@ -240,6 +243,18 @@ instr_ldm = { instr_ldm_name ~ register_no_size ~ "," ~ (machine_register | imme
 
 instr_stm_name = ${ "stm" }
 instr_stm = { instr_stm_name ~ (machine_register | immediate) ~ "," ~ register_no_size }
+
+//
+// pseudo-instructions
+//
+
+instr_pseudo_cmp_name = ${ "cmp" ~ size_suffix? }
+instr_pseudo_cmp_reg = { instr_pseudo_cmp_name ~ register ~ "," ~ register ~ ("," ~ immediate)? }
+instr_pseudo_cmp_imm = { instr_pseudo_cmp_name ~ register ~ "," ~ immediate ~ ("," ~ immediate ~ ("," ~ immediate ~ ("," ~ immediate)?)?)? }
+
+//
+// unknown instruction
+//
 
 instr_unknown_name = @{ ASCII_ALPHA+ }
 instr_unknown = ${ instr_unknown_name ~ (!NEWLINE ~ ANY)* }

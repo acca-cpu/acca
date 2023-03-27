@@ -911,6 +911,14 @@ fn main() {
 
 			ldm d:reg, a:imm22(next_machine_register_or_immediate) => [000100ddddaaaaaaaaaaaaaaaaaaaaaa];
 			stm d:imm22(next_machine_register_or_immediate), a:reg => [000101aaaadddddddddddddddddddddd];
+
+			//
+			// pseudo-instructions
+			//
+
+			// cmp is a pseudo-instruction for sub (with a null destination and flag-setting)
+			pseudo_cmp_reg = cmp [.s] a:reg, b:reg,                        [B:bool] => [101000000000000ssB111111aaaabbbb];
+			pseudo_cmp_imm = cmp [.s] a:reg, b:imm11, [S:imm3], [A: bool], [B:bool] => [1001ssB111111aaaaASSSbbbbbbbbbbb];
 		}
 	}
 }
