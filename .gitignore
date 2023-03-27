@@ -5,3 +5,5 @@ target/
 spec/book
 .vscode
 **/*.bin
+**/.DS_Store
+**/._*
