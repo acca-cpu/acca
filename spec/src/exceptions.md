@@ -160,14 +160,15 @@ This register consists of the following format:
 
 ### Data load error
 
-|  63-4  |  3   |  2-0  |
-| ------ | ---- | ----- |
-| *RES0* | `RW` | `110` |
+|  63-20 |  19-4  |  3   |  2-0  |
+| ------ | ------ | ---- | ----- |
+| *RES0* | `size` | `RW` | `110` |
 
   * `RW` - Read or write
     * If `1`, this indicates that the load error occurred during a write;
       otherwise, if `0`, this indicates that the load error occurred during a
       read.
+  * `size` - Access size (in bytes)
 
 When this type of exception is taken, the address that caused the error will be
 loaded into the [`eaddr`][eaddr] machine register.
