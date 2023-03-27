@@ -1,0 +1,225 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "Acca Assembly",
+	"patterns": [
+		{
+			"include": "#strings"
+		},
+		{
+			"include": "#characters"
+		},
+		{
+			"include": "#integers"
+		},
+		{
+			"include": "#labels"
+		},
+		{
+			"include": "#registers"
+		},
+		{
+			"include": "#machine-registers"
+		},
+		{
+			"include": "#directives"
+		},
+		{
+			"include": "#instructions"
+		},
+		{
+			"include": "#comments"
+		}
+	],
+	"repository": {
+		"strings": {
+			"name": "string.quoted.double.acca-asm",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [{
+				"name": "constant.character.escape.acca-asm",
+				"match": "\\\\(\"|\\\\|n|f|t|r|b)"
+			}]
+		},
+		"characters": {
+			"patterns": [
+				{
+					"name": "string.quoted.single.acca-asm",
+					"match": "'[^'\\\\]'"
+				},
+				{
+					"name": "string.quoted.single.escaped.acca-asm",
+					"match": "'(\\\\(?:'|\\\\|n|f|t|r|b))'",
+					"captures": {
+						"1": {
+							"name": "constant.character.escape.acca-asm"
+						}
+					}
+				},
+				{
+					"begin": "'",
+					"end": "'",
+					"name": "invalid.illegal.string.quoted.single.acca-asm"
+				}
+			]
+		},
+		"registers": {
+			"patterns": [
+				{
+					"name": "meta.register.acca-asm",
+					"match": "\\b(?:(r(?:1[0-5]|[0-9]|sp|fp|lr))(b|d|q|w)?)\\b",
+					"captures": {
+						"1": {
+							"name": "storage.register.acca-asm"
+						},
+						"2": {
+							"name": "storage.modifier.size.acca-asm"
+						}
+					}
+				},
+				{
+					"name": "constant.language.null-register.acca-asm",
+					"match": "\\b(null)\\b"
+				}
+			]
+		},
+		"machine-registers": {
+			"name": "meta.machine-register.acca-asm",
+			"match": "\\b(?:(mreg)\\.)?(flags|elr|esp|eflags|einfo|eaddr|evtable|ectable)\\b",
+			"captures": {
+				"1": {
+					"name": "support.class.machine-register.acca-asm"
+				},
+				"2": {
+					"name": "support.constant.machine-register.acca-asm"
+				}
+			}
+		},
+		"comments": {
+			"name": "comment.line.number-sign.acca-asm",
+			"begin": "#",
+			"end": "$"
+		},
+		"labels": {
+			"name": "meta.label.acca-asm",
+			"match": "^\\s*([A-Za-z_][A-Za-z_0-9]*)(:)",
+			"captures": {
+				"1": {
+					"name": "entity.name.function.label.acca-asm"
+				},
+				"2": {
+					"name": "punctuation.colon.label.acca-asm"
+				}
+			}
+		},
+		"integers": {
+			"patterns": [
+				{
+					"name": "constant.numeric.decimal.acca-asm",
+					"match": "\\b(?:0[dD])?[0-9][0-9_]*\\b"
+				},
+				{
+					"name": "constant.numeric.binary.acca-asm",
+					"match": "\\b(?:0[bB])[0-1][0-1_]*\\b"
+				},
+				{
+					"name": "constant.numeric.octal.acca-asm",
+					"match": "\\b(?:0[oO])[0-7][0-7_]*\\b"
+				},
+				{
+					"name": "constant.numeric.decimal.acca-asm",
+					"match": "\\b(?:0[xX])[0-9a-fA-F][0-9a-fA-F_]*\\b"
+				}
+			]
+		},
+		"instructions": {
+			"patterns": [
+				{
+					"name": "meta.instruction.acca-asm",
+					"match": "\\b(ldi|ldr|mul|ret|eret|udf|dbg|exc|nop|ldm|stm)\\b",
+					"captures": {
+						"1": {
+							"name": "keyword.other.instruction.acca-asm"
+						}
+					}
+				},
+				{
+					"name": "meta.instruction-with-size.acca-asm",
+					"match": "\\b(pushs|pushp|pops|popp|lds|ldp|sts|stp|copy|add|sub|div|and|or|xor|shl|shr|rot|neg|bswap|cmp)(?:\\.(b|d|q|w))?\\b",
+					"captures": {
+						"1": {
+							"name": "keyword.other.instruction.acca-asm"
+						},
+						"2": {
+							"name": "storage.modifier.size.acca-asm"
+						}
+					}
+				},
+				{
+					"name": "meta.instruction-with-cond.acca-asm",
+					"match": "\\b(jmpa|jmpr|calla|callr)(?:\\.(n?(?:c|z|o|s)))?\\b",
+					"captures": {
+						"1": {
+							"name": "keyword.other.instruction.acca-asm"
+						},
+						"2": {
+							"name": "keyword.control.condition.acca-asm"
+						}
+					}
+				},
+				{
+					"name": "meta.instruction-with-cond-and-size.acca-asm",
+					"match": "\\b(cjmpa|cjmpr)(?:\\.(n?(?:c|z|o|s)))?(?:\\.(b|d|q|w))?\\b",
+					"captures": {
+						"1": {
+							"name": "keyword.other.instruction.acca-asm"
+						},
+						"2": {
+							"name": "keyword.control.condition.acca-asm"
+						},
+						"3": {
+							"name": "storage.modifier.size.acca-asm"
+						}
+					}
+				}
+			]
+		},
+		"directives": {
+			"patterns": [
+				{
+					"name": "meta.directive.write.acca-asm",
+					"match": "\\.(write)\\.(b|d|q|w)\\b",
+					"captures": {
+						"1": {
+							"name": "keyword.other.directive.acca-asm"
+						},
+						"2": {
+							"name": "storage.modifier.size.acca-asm"
+						}
+					}
+				},
+				{
+					"name": "meta.directive.def.acca-asm",
+					"match": "\\.(def)\\b\\s*\\b([A-Za-z_][A-Za-z0-9_]*)\\b",
+					"captures": {
+						"1": {
+							"name": "keyword.other.directive.acca-asm"
+						},
+						"2": {
+							"name": "entity.name.function.label.acca-asm"
+						}
+					}
+				},
+				{
+					"name": "meta.directive.acca-asm",
+					"match": "\\.(addr|def|write)\\b",
+					"captures": {
+						"1": {
+							"name": "keyword.other.directive.acca-asm"
+						}
+					}
+				}
+			]
+		}
+	},
+	"scopeName": "source.acca-asm"
+}
