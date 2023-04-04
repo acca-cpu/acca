@@ -834,7 +834,7 @@ fn main() {
 			pushs[.s] a:reg | null               => [1101110000000000000000000ssaaaaa];
 			pushp[.s] a:reg | null, b:reg | null => [11011000000000000000ssaaaaabbbbb];
 			pops[.s]  a:reg | null               => [1101010000000000000000000ssaaaaa];
-			popp[.s]  a:reg | null, b:reg | null => [1101000000000000000000ssaaaabbbb];
+			popp[.s]  a:reg | null, b:reg | null => [11010000000000000000ssaaaaabbbbb];
 
 			lds[.s] d:reg, a:reg        => [1100110000000000000000ssddddaaaa];
 			ldp[.s] d:reg, e:reg, a:reg => [110010000000000000ssddddeeeeaaaa];
