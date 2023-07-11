@@ -311,7 +311,7 @@ impl VM {
 
 				self.register_file[RegisterID::SP] = (old_rsp_val + byte_size).into();
 			},
-			[1101000000000000000000ssaaaabbbb] => popp size = s: size, dst1 = a: reg | null, dst2 = b: reg | null {
+			[11010000000000000000ssaaaaabbbbb] => popp size = s: size, dst1 = a: reg | null, dst2 = b: reg | null {
 				let byte_size = size.byte_size() as u64;
 
 				let old_rsp_val = self.register_file[RegisterID::SP].get_address();
