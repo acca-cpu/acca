@@ -861,12 +861,12 @@ fn main() {
 
 			div[.s] d:reg, r:reg, a:reg, b:reg, [S:bool], [f:bool] => [100010000000ssSfddddrrrraaaabbbb];
 
-			and_reg = and[.s] d:reg | null, a:reg, b:reg,              [f:bool] => [1000010000000000ssfdddddaaaabbbb];
-			and_imm = and[.s] d:reg | null, a:reg, b:imm11, [S: imm3], [f:bool] => [100000ssfdddddaaaabbbbbbbbbbbSSS];
-			or_reg  = or[.s]  d:reg | null, a:reg, b:reg,              [f:bool] => [0111110000000000ssfdddddaaaabbbb];
-			or_imm  = or[.s]  d:reg | null, a:reg, b:imm11, [S: imm3], [f:bool] => [011110ssfdddddaaaabbbbbbbbbbbSSS];
-			xor_reg = xor[.s] d:reg | null, a:reg, b:reg,              [f:bool] => [0111010000000000ssfdddddaaaabbbb];
-			xor_imm = xor[.s] d:reg | null, a:reg, b:imm11, [S: imm3], [f:bool] => [011100ssfdddddaaaabbbbbbbbbbbSSS];
+			and_reg = and[.s] d:reg | null, a:reg, b:reg,                        [f:bool] => [1010110000000000ssfdddddaaaabbbb];
+			and_imm = and[.s] d:reg | null, a:reg, b:imm11, [S: imm3], [A:bool], [f:bool] => [10000AssfdddddaaaabbbbbbbbbbbSSS];
+			or_reg  = or[.s]  d:reg | null, a:reg, b:reg,                        [f:bool] => [0100000000000000ssfdddddaaaabbbb];
+			or_imm  = or[.s]  d:reg | null, a:reg, b:imm11, [S: imm3], [A:bool], [f:bool] => [01111AssfdddddaaaabbbbbbbbbbbSSS];
+			xor_reg = xor[.s] d:reg | null, a:reg, b:reg,                        [f:bool] => [0011100000000000ssfdddddaaaabbbb];
+			xor_imm = xor[.s] d:reg | null, a:reg, b:imm11, [S: imm3], [A:bool], [f:bool] => [01110AssfdddddaaaabbbbbbbbbbbSSS];
 
 			shl[.s] d:reg | null, a:reg, b:reg | imm7, [f: bool] => {
 				d: reg | null, a: reg, b: reg,  f: bool => [0110100000000000ssfdddddaaaabbbb],

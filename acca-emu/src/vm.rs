@@ -516,7 +516,7 @@ impl VM {
 					self.flags.set_sign(result_quot.bit_as_bool(size.msb_index() as u64));
 				}
 			},
-			[1000010000000000ssfdddddaaaabbbb] => and size = s: size, dst = d: reg | null, lhs = a: reg, rhs = b: reg, set_flags = f: bool {
+			[1010110000000000ssfdddddaaaabbbb] => and size = s: size, dst = d: reg | null, lhs = a: reg, rhs = b: reg, set_flags = f: bool {
 				let lhs = self.register_file[lhs].get_unsigned(size);
 				let rhs = self.register_file[rhs].get_unsigned(size);
 
@@ -532,9 +532,9 @@ impl VM {
 					self.flags.set_sign(result.bit_as_bool(size.msb_index() as u64));
 				}
 			},
-			[100000ssfdddddaaaabbbbbbbbbbbSSS] => and size = s: size, dst = d: reg | null, lhs = a: reg, rhs = b: imm11, shift_factor = S: imm3, set_flags = f: bool {
+			[10000AssfdddddaaaabbbbbbbbbbbSSS] => and size = s: size, dst = d: reg | null, lhs = a: reg, rhs = b: imm11, shift_factor = S: imm3, sign_extend = A: bool, set_flags = f: bool {
 				let lhs = self.register_file[lhs].get_unsigned(size);
-				let rhs = imm11_with_shift_factor(rhs, shift_factor, false);
+				let rhs = imm11_with_shift_factor(rhs, shift_factor, sign_extend);
 
 				let result = lhs & rhs;
 
@@ -548,7 +548,7 @@ impl VM {
 					self.flags.set_sign(result.bit_as_bool(size.msb_index() as u64));
 				}
 			},
-			[0111110000000000ssfdddddaaaabbbb] => or size = s: size, dst = d: reg | null, lhs = a: reg, rhs = b: reg, set_flags = f: bool {
+			[0100000000000000ssfdddddaaaabbbb] => or size = s: size, dst = d: reg | null, lhs = a: reg, rhs = b: reg, set_flags = f: bool {
 				let lhs = self.register_file[lhs].get_unsigned(size);
 				let rhs = self.register_file[rhs].get_unsigned(size);
 
@@ -564,9 +564,9 @@ impl VM {
 					self.flags.set_sign(result.bit_as_bool(size.msb_index() as u64));
 				}
 			},
-			[011110ssfdddddaaaabbbbbbbbbbbSSS] => or size = s: size, dst = d: reg | null, lhs = a: reg, rhs = b: imm11, shift_factor = S: imm3, set_flags = f: bool {
+			[01111AssfdddddaaaabbbbbbbbbbbSSS] => or size = s: size, dst = d: reg | null, lhs = a: reg, rhs = b: imm11, shift_factor = S: imm3, sign_extend = A: bool, set_flags = f: bool {
 				let lhs = self.register_file[lhs].get_unsigned(size);
-				let rhs = imm11_with_shift_factor(rhs, shift_factor, false);
+				let rhs = imm11_with_shift_factor(rhs, shift_factor, sign_extend);
 
 				let result = lhs | rhs;
 
@@ -580,7 +580,7 @@ impl VM {
 					self.flags.set_sign(result.bit_as_bool(size.msb_index() as u64));
 				}
 			},
-			[0111010000000000ssfdddddaaaabbbb] => xor size = s: size, dst = d: reg | null, lhs = a: reg, rhs = b: reg, set_flags = f: bool {
+			[0011100000000000ssfdddddaaaabbbb] => xor size = s: size, dst = d: reg | null, lhs = a: reg, rhs = b: reg, set_flags = f: bool {
 				let lhs = self.register_file[lhs].get_unsigned(size);
 				let rhs = self.register_file[rhs].get_unsigned(size);
 
@@ -596,9 +596,9 @@ impl VM {
 					self.flags.set_sign(result.bit_as_bool(size.msb_index() as u64));
 				}
 			},
-			[011100ssfdddddaaaabbbbbbbbbbbSSS] => xor size = s: size, dst = d: reg | null, lhs = a: reg, rhs = b: imm11, shift_factor = S: imm3, set_flags = f: bool {
+			[01110AssfdddddaaaabbbbbbbbbbbSSS] => xor size = s: size, dst = d: reg | null, lhs = a: reg, rhs = b: imm11, shift_factor = S: imm3, sign_extend = A: bool, set_flags = f: bool {
 				let lhs = self.register_file[lhs].get_unsigned(size);
-				let rhs = imm11_with_shift_factor(rhs, shift_factor, false);
+				let rhs = imm11_with_shift_factor(rhs, shift_factor, sign_extend);
 
 				let result = lhs ^ rhs;
 

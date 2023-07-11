@@ -177,15 +177,15 @@ instr_div = { instr_div_name ~ register ~ "," ~ register ~ "," ~ register ~ "," 
 
 instr_and_name = ${ "and" ~ size_suffix? }
 instr_and_reg = { instr_and_name ~ register_or_null ~ "," ~ register ~ "," ~ register ~ ("," ~ immediate)? }
-instr_and_imm = { instr_and_name ~ register_or_null ~ "," ~ register ~ "," ~ immediate ~ ("," ~ immediate ~ ("," ~ immediate)?)? }
+instr_and_imm = { instr_and_name ~ register_or_null ~ "," ~ register ~ "," ~ immediate ~ ("," ~ immediate ~ ("," ~ immediate ~ ("," ~ immediate)?)?)? }
 
 instr_or_name = ${ "or" ~ size_suffix? }
 instr_or_reg = { instr_or_name ~ register_or_null ~ "," ~ register ~ "," ~ register ~ ("," ~ immediate)? }
-instr_or_imm = { instr_or_name ~ register_or_null ~ "," ~ register ~ "," ~ immediate ~ ("," ~ immediate ~ ("," ~ immediate)?)? }
+instr_or_imm = { instr_or_name ~ register_or_null ~ "," ~ register ~ "," ~ immediate ~ ("," ~ immediate ~ ("," ~ immediate ~ ("," ~ immediate)?)?)? }
 
 instr_xor_name = ${ "xor" ~ size_suffix? }
 instr_xor_reg = { instr_xor_name ~ register_or_null ~ "," ~ register ~ "," ~ register ~ ("," ~ immediate)? }
-instr_xor_imm = { instr_xor_name ~ register_or_null ~ "," ~ register ~ "," ~ immediate ~ ("," ~ immediate ~ ("," ~ immediate)?)? }
+instr_xor_imm = { instr_xor_name ~ register_or_null ~ "," ~ register ~ "," ~ immediate ~ ("," ~ immediate ~ ("," ~ immediate ~ ("," ~ immediate)?)?)? }
 
 instr_shl_name = ${ "shl" ~ size_suffix? }
 instr_shl = { instr_shl_name ~ register_or_null ~ "," ~ register ~ "," ~ (register | immediate) ~ ("," ~ immediate)? }

@@ -541,9 +541,9 @@ modify the CPU flags register as follows:
 
 |  31-26   |    25-16     | 15-14 | 13  |  12-8   |  7-4   |  3-0   |
 | -------- | ------------ | ----- | --- | ------- | ------ | ------ |
-| `100001` | `0000000000` | `ss`  | `f` | `ddddd` | `aaaa` | `bbbb` |
+| `101011` | `0000000000` | `ss`  | `f` | `ddddd` | `aaaa` | `bbbb` |
 
-### `and[.s] d:reg | null, a:reg, b:imm11[, S: imm3][, f:bool]`
+### `and[.s] d:reg | null, a:reg, b:imm11[, S: imm3][, A:bool][, f:bool]`
 
 "and"
 
@@ -559,7 +559,7 @@ as necessary to fit the operation width.
 
 |  31-26   | 25-24 | 23  |  22-18  | 17-14  |     13-3      |  2-0  |
 | -------- | ----- | --- | ------- | ------ | ------------- | ----- |
-| `100000` | `ss`  | `f` | `ddddd` | `aaaa` | `bbbbbbbbbbb` | `SSS` |
+| `10000A` | `ss`  | `f` | `ddddd` | `aaaa` | `bbbbbbbbbbb` | `SSS` |
 
 ### `or[.s] d:reg | null, a:reg, b:reg[, f:bool]`
 
@@ -591,9 +591,9 @@ modify the CPU flags register as follows:
 
 |  31-26   |    25-16     | 15-14 | 13  |  12-8   |  7-4   |  3-0   |
 | -------- | ------------ | ----- | --- | ------- | ------ | ------ |
-| `011111` | `0000000000` | `ss`  | `f` | `ddddd` | `aaaa` | `bbbb` |
+| `010000` | `0000000000` | `ss`  | `f` | `ddddd` | `aaaa` | `bbbb` |
 
-### `or[.s] d:reg | null, a:reg, b:imm11[, S: imm3][, f:bool]`
+### `or[.s] d:reg | null, a:reg, b:imm11[, S: imm3][, A:bool][, f:bool]`
 
 "or"
 
@@ -609,7 +609,7 @@ as necessary to fit the operation width.
 
 |  31-26   | 25-24 | 23  |  22-18  | 17-14  |     13-3      |  2-0  |
 | -------- | ----- | --- | ------- | ------ | ------------- | ----- |
-| `011110` | `ss`  | `f` | `ddddd` | `aaaa` | `bbbbbbbbbbb` | `SSS` |
+| `01111A` | `ss`  | `f` | `ddddd` | `aaaa` | `bbbbbbbbbbb` | `SSS` |
 
 ### `xor[.s] d:reg | null, a:reg, b:reg[, f:bool]`
 
@@ -641,9 +641,9 @@ modify the CPU flags register as follows:
 
 |  31-26   |    25-16     | 15-14 | 13  |  12-8   |  7-4   |  3-0   |
 | -------- | ------------ | ----- | --- | ------- | ------ | ------ |
-| `011101` | `0000000000` | `ss`  | `f` | `ddddd` | `aaaa` | `bbbb` |
+| `001110` | `0000000000` | `ss`  | `f` | `ddddd` | `aaaa` | `bbbb` |
 
-### `xor[.s] d:reg | null, a:reg, b:imm11[, S: imm3][, f:bool]`
+### `xor[.s] d:reg | null, a:reg, b:imm11[, S: imm3][, A:bool][, f:bool]`
 
 "exclusive or"
 
@@ -659,7 +659,7 @@ as necessary to fit the operation width.
 
 |  31-26   | 25-24 | 23  |  22-18  | 17-14  |     13-3      |  2-0  |
 | -------- | ----- | --- | ------- | ------ | ------------- | ----- |
-| `011100` | `ss`  | `f` | `ddddd` | `aaaa` | `bbbbbbbbbbb` | `SSS` |
+| `01110A` | `ss`  | `f` | `ddddd` | `aaaa` | `bbbbbbbbbbb` | `SSS` |
 
 ### `shl[.s] d:reg | null, a:reg, b:reg | imm7[, f: bool]`
 
