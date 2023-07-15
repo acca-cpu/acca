@@ -65,6 +65,9 @@ enum Condition {
 	NO = 5,
 	S = 6,
 	NS = 7,
+	L = 8,
+	NL = 9,
+	NONE = 15,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -383,6 +386,8 @@ fn parse_condition(condition: Pair<Rule>) -> Condition {
 		"no" => Condition::NO,
 		"s" => Condition::S,
 		"ns" => Condition::NS,
+		"l" => Condition::L,
+		"nl" => Condition::NL,
 		_ => unreachable!(),
 	}
 }
@@ -884,16 +889,19 @@ fn main() {
 			neg[.s]   d:reg, a:reg, [f: bool] => [010101000000000000000ssfddddaaaa];
 			bswap[.s] d:reg, a:reg, [f: bool] => [010100000000000000000ssfddddaaaa];
 
+			soc.c[.s] d:reg, a:reg, b:reg, [B: bool] => [1111000000000ccccBssddddaaaabbbb];
+			sof.c[.s] d:reg => [1111010000000000000000ccccssdddd];
+
 			jmpa[.c] a:reg => [010011000000000000000000ccccaaaa];
 			jmpr[.c] a:reg | rel22 => {
 				a: reg   => [010010000000000000000000ccccaaaa],
 				a: rel22 => [010001ccccaaaaaaaaaaaaaaaaaaaaaa],
 			};
 
-			cjmpa.c[.s] a:reg, b:reg, C:reg => [001111000000000cccssaaaabbbbCCCC];
+			cjmpa.c[.s] a:reg, b:reg, C:reg => [00111100000000ccccssaaaabbbbCCCC];
 			cjmpr.c[.s] a:reg | rel13, b:reg, C:reg => {
-				a: reg,   b: reg, C: reg => [001101000000000cccssaaaabbbbCCCC],
-				a: rel13, b: reg, C: reg => [001011cccssbbbbCCCCaaaaaaaaaaaaa],
+				a: reg,   b: reg, C: reg => [00110100000000ccccssaaaabbbbCCCC],
+				a: rel13, b: reg, C: reg => [11111ccccssbbbbCCCCaaaaaaaaaaaaa],
 			};
 
 			calla[.c] a:reg => [001010000000000000000000ccccaaaa];

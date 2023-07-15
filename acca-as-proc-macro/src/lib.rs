@@ -437,7 +437,7 @@ fn instruction_helper(item: TokenStream) -> (proc_macro2::TokenStream, proc_macr
 		quote_spanned! {source_span=>
 			let c = match cond {
 				Some(op_cond) => op_cond as u64,
-				None => 31u64,
+				None => Condition::NONE as u64,
 			};
 		}
 	} else {

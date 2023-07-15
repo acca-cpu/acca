@@ -31,6 +31,8 @@ instr = {
 	instr_rot |
 	instr_neg |
 	instr_bswap |
+	instr_soc |
+	instr_sof |
 	instr_jmpa |
 	instr_jmpr |
 	instr_cjmpa |
@@ -201,6 +203,12 @@ instr_neg = { instr_neg_name ~ register ~ "," ~ register ~ ("," ~ immediate)? }
 
 instr_bswap_name = ${ "bswap" ~ size_suffix? }
 instr_bswap = { instr_bswap_name ~ register ~ "," ~ register ~ ("," ~ immediate)? }
+
+instr_soc_name = ${ "soc" ~ size_suffix? }
+instr_soc = { instr_soc_name ~ register ~ "," ~ register ~ "," ~ register ~ "," ~ immediate ~ ("," ~ immediate)? }
+
+instr_sof_name = ${ "sof" ~ size_suffix? }
+instr_sof = { instr_sof_name ~ register ~ "," ~ immediate }
 
 instr_jmpa_name = ${ "jmpa" ~ condition_suffix? }
 instr_jmpa = { instr_jmpa_name ~ register_no_size }
