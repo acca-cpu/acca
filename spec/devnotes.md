@@ -7,10 +7,7 @@
 The following are the unused 6-bit instruction IDs that can be assigned to
 future instructions:
 
-  * `111100`
-  * `111101`
-  * `111110`
-  * `111111`
+  * `001011`
 
 This list must be updated as instructions are added and removed from the
 specification.

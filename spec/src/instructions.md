@@ -57,6 +57,9 @@ Valid conditions are one of the following:
   * `z` or `nz` for zero bit (`Z`) set or unset (respectively)
   * `o` or `no` for overflow bit (`O`) set or unset (respectively)
   * `s` or `ns` for sign bit (`S`) set or unset (respectively)
+  * `l` or `nl` for the less-than virtual bit (`S xor O`) set or unset (respectively)
+
+As shown above, the first 8 conditions correspond to actual CPU flag bits. The 9th and 10th conditions, however, correspond to a virtual bit calculated from the exclusive-or of the sign bit with the overflow bit. After a `sub` or equivalent comparison (e.g. `soc`, `cjmpa`/`cjmpr`), this bit can be used for signed comparison of the two operands. This virtual bit will be set when the signed interpretation LHS of the comparison is less than the signed interpretation RHS.
 
 ## Encoding Notes
 
@@ -402,7 +405,7 @@ operation.
 "subtract"
 
 This instruction subtracts the value in register `b` from the value in register
-`a` and stores the result into register `d`. If `B` is `0` `false` (the
+`a` and stores the result into register `d`. If `B` is `0`/`false` (the
 default), the subtraction is performed without a borrow; if `B` is `1`/`true`,
 the current value of the carry flag (`C`) is used as a borrow, i.e. a second
 (one-bit) subtrahend.
@@ -831,6 +834,43 @@ modify the CPU flags register as follows:
 | -------- | ----------------- | ---- | --- | ------ | ------ |
 | `010100` | `000000000000000` | `ss` | `f` | `dddd` | `aaaa` |
 
+### `soc.c[.s] d:reg, a:reg, b:reg[, B:bool]`
+
+"set on comparison"
+
+Like [`sub` (register)][sub_register], this instruction subtracts the value in
+register `b` from the value in register `a`. However, unlike that instruction,
+the result is discarded. Instead, the result is used to calculate the CPU flags
+that would be set by the operation; these flags are *also* not stored anywhere.
+
+The conditions for the calculating the temporary CPU flags are the same as for
+[`sub` (register)][sub_register].
+
+Register `d` is set to `0`/`false` or `1`/`true` depending on the result of
+evaluating the condition `c` against the temporary CPU flags calculated
+for the comparison. See [Conditions](#conditions) for more details.
+
+#### Encoding
+
+|  31-26   |   25-19   | 18-15  | 14  | 13-12 |  11-8  |  7-4   |  3-0   |
+| -------- | --------- | ------ | --- | ----- | ------ | ------ | ------ |
+| `111100` | `0000000` | `cccc` | `B` | `ss`  | `dddd` | `aaaa` | `bbbb` |
+
+### `sof.c[.s] d:reg`
+
+"set on flags"
+
+Similar to [`soc`][soc], this instruction uses the condition `c` to
+determine whether to set register `d` to `0`/`false` or `1`/`true`. Unlike that
+instruction, no comparison is performed; instead, the current CPU flags are
+used to determine the condition.
+
+#### Encoding
+
+|  31-26   |       25-10        |  9-6   | 5-4  |  3-0   |
+| -------- | ------------------ | ------ | ---- | ------ |
+| `111101` | `0000000000000000` | `cccc` | `ss` | `dddd` |
+
 ## Conditionals and Control Flow
 
 ### `jmpa[.c] a:reg`
@@ -887,9 +927,9 @@ If the condition evaluates to true, a jump is performed to register `a` like the
 
 #### Encoding
 
-|  31-26   |    25-17    | 16-14 | 13-12 |  11-8  |  7-4   |  3-0   |
-| -------- | ----------- | ----- | ----- | ------ | ------ | ------ |
-| `001111` | `000000000` | `ccc` | `ss`  | `aaaa` | `bbbb` | `CCCC` |
+|  31-26   |   25-18    | 17-14  | 13-12 |  11-8  |  7-4   |  3-0   |
+| -------- | ---------- | ------ | ----- | ------ | ------ | ------ |
+| `001111` | `00000000` | `cccc` | `ss`  | `aaaa` | `bbbb` | `CCCC` |
 
 ### `cjmpr.c[.s] a:reg, b:reg, C:reg`
 
@@ -907,9 +947,9 @@ If the condition evaluates to true, a jump is performed to register `a` like the
 
 #### Encoding
 
-|  31-26   |    25-17    | 16-14 | 13-12 |  11-8  |  7-4   |  3-0   |
-| -------- | ----------- | ----- | ----- | ------ | ------ | ------ |
-| `001101` | `000000000` | `ccc` | `ss`  | `aaaa` | `bbbb` | `CCCC` |
+|  31-26   |   25-18    | 17-14  | 13-12 |  11-8  |  7-4   |  3-0   |
+| -------- | ---------- | ------ | ----- | ------ | ------ | ------ |
+| `001101` | `00000000` | `cccc` | `ss`  | `aaaa` | `bbbb` | `CCCC` |
 
 ### `cjmpr.c[.s] a:rel13, b:reg, C:reg`
 
@@ -931,7 +971,7 @@ range is +4095 or -4096 instructions.
 
 |  31-26   | 25-23 | 22-21 | 20-17  | 16-13  |      12-0       |
 | -------- | ----- | ----- | ------ | ------ | --------------- |
-| `001011` | `ccc` | `ss`  | `bbbb` | `CCCC` | `aaaaaaaaaaaaa` |
+| `11111c` | `ccc` | `ss`  | `bbbb` | `CCCC` | `aaaaaaaaaaaaa` |
 
 ### `calla[.c] a:reg`
 
@@ -1101,3 +1141,4 @@ identified by `a`.
 [jmpr_immediate]: #jmprc-aimm23
 [registers]: #registers
 [abs_and_rel_addr]: #absolute-and-relative-addresses
+[soc]: #soccs-dreg-areg-breg-bbool
