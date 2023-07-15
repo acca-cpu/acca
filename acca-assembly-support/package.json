@@ -3,7 +3,7 @@
 	"publisher": "facekapow",
 	"displayName": "Acca Assembly Support",
 	"description": "A language support extension for Acca assembly",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"repository": "https://github.com/facekapow/acca",
 	"engines": {
 		"vscode": "^1.76.0"

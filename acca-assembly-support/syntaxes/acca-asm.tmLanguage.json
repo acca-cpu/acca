@@ -156,7 +156,7 @@
 				},
 				{
 					"name": "meta.instruction-with-cond.acca-asm",
-					"match": "\\b(jmpa|jmpr|calla|callr)(?:\\.(n?(?:c|z|o|s)))?\\b",
+					"match": "\\b(jmpa|jmpr|calla|callr)(?:\\.(n?(?:c|z|o|s|l)))?\\b",
 					"captures": {
 						"1": {
 							"name": "keyword.other.instruction.acca-asm"
@@ -168,7 +168,7 @@
 				},
 				{
 					"name": "meta.instruction-with-cond-and-size.acca-asm",
-					"match": "\\b(cjmpa|cjmpr)(?:\\.(n?(?:c|z|o|s)))?(?:\\.(b|d|q|w))?\\b",
+					"match": "\\b(cjmpa|cjmpr|soc|sof)(?:\\.(n?(?:c|z|o|s|l)))?(?:\\.(b|d|q|w))?\\b",
 					"captures": {
 						"1": {
 							"name": "keyword.other.instruction.acca-asm"
