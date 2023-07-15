@@ -220,13 +220,14 @@ impl VM {
 			};
 		}
 
-		macro_rules! compare_and_jump {
-			($size:expr, $lhs:expr, $rhs:expr => $addr:expr, $cond:expr) => {
+		macro_rules! compare {
+			($size:expr, $lhs:expr, $rhs:expr, $borrow:expr => $cond:expr) => {{
 				let size = $size;
 				let lhs = self.register_file[$lhs].get_signed(size) as u64;
 				let rhs = self.register_file[$rhs].get_signed(size) as u64;
+				let borrow: u64 = if $borrow && self.flags.carry() { 1 } else { 0 };
 
-				let result = lhs.wrapping_sub(rhs) as u64;
+				let result = lhs.wrapping_sub(rhs).wrapping_sub(borrow) as u64;
 				let msb = size.msb_index() as u64;
 
 				let lhs_msb = lhs.bit_as_bool(msb);
@@ -239,18 +240,13 @@ impl VM {
 					(lhs_msb && !rhs_msb && !res_msb) || (!lhs_msb && rhs_msb && res_msb);
 				let sign = res_msb;
 
-				let should_jump = match $cond {
-					Condition::C => carry,
-					Condition::NC => !carry,
-					Condition::Z => zero,
-					Condition::NZ => !zero,
-					Condition::O => overflow,
-					Condition::NO => !overflow,
-					Condition::S => sign,
-					Condition::NS => !sign,
-				};
+				$cond.test(carry, zero, overflow, sign)
+			}};
+		}
 
-				if should_jump {
+		macro_rules! compare_and_jump {
+			($size:expr, $lhs:expr, $rhs:expr => $addr:expr, $cond:expr) => {
+				if compare!($size, $lhs, $rhs, false => $cond) {
 					do_jump!($addr);
 				}
 			};
@@ -789,6 +785,20 @@ impl VM {
 					self.flags.set_sign(result.bit_as_bool(size.msb_index() as u64));
 				}
 			},
+			[1111000000000ccccBssddddaaaabbbb] => soc size = s: size, dst = d: reg, lhs = a: reg, rhs = b: reg, cond = c: cond, borrow = B: bool {
+				let result = match compare!(size, lhs, rhs, borrow => cond) {
+					false => 0u64,
+					true => 1u64,
+				};
+				self.register_file[dst].set(size, result);
+			},
+			[1111010000000000000000ccccssdddd] => sof size = s: size, dst = d: reg, cond = c: cond {
+				let result = match self.flags.test_condition(cond) {
+					false => 0u64,
+					true => 1u64,
+				};
+				self.register_file[dst].set(size, result);
+			},
 
 			//
 			// conditionals and control flow
@@ -809,17 +819,17 @@ impl VM {
 				let addr = rel_base + (((addr as i64) * 4) as u64);
 				jump!(addr, cond);
 			},
-			[001111000000000cccssaaaabbbbCCCC] => cjmpa cond = c: cond, size = s: size, addr = a: reg, lhs = b: reg, rhs = C: reg {
+			[00111100000000ccccssaaaabbbbCCCC] => cjmpa cond = c: cond, size = s: size, addr = a: reg, lhs = b: reg, rhs = C: reg {
 				let addr = self.register_file[addr].get_address();
 				compare_and_jump!(size, lhs, rhs => addr, cond);
 			},
-			[001101000000000cccssaaaabbbbCCCC] => cjmpr cond = c: cond, size = s: size, addr = a: reg, lhs = b: reg, rhs = C: reg {
+			[00110100000000ccccssaaaabbbbCCCC] => cjmpr cond = c: cond, size = s: size, addr = a: reg, lhs = b: reg, rhs = C: reg {
 				let rel_base = self.instruction_pointer + 4;
 				let addr = self.register_file[addr].get();
 				let addr = rel_base + (((addr as i64) * 4) as u64);
 				compare_and_jump!(size, lhs, rhs => addr, cond);
 			},
-			[001011cccssbbbbCCCCaaaaaaaaaaaaa] => cjmpr cond = c: cond, size = s: size, addr = a: rel13, lhs = b: reg, rhs = C: reg {
+			[11111ccccssbbbbCCCCaaaaaaaaaaaaa] => cjmpr cond = c: cond, size = s: size, addr = a: rel13, lhs = b: reg, rhs = C: reg {
 				let rel_base = self.instruction_pointer + 4;
 				let addr = rel_base + (((addr as i64) * 4) as u64);
 				compare_and_jump!(size, lhs, rhs => addr, cond);

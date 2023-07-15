@@ -373,7 +373,7 @@ pub fn instructions(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 				ParameterType::Condition => quote!(Condition::from(#bits_stream)),
 				ParameterType::NullableCondition => quote! {
 					match #bits_stream {
-						bits @ 0..=7 => Some(Condition::from(bits)),
+						bits @ 0..=9 => Some(Condition::from(bits)),
 						15 => None,
 						_ => unreachable!(),
 					}

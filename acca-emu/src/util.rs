@@ -26,6 +26,8 @@ pub(crate) enum Condition {
 	NO = 5,
 	S = 6,
 	NS = 7,
+	L = 8,
+	NL = 9,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -90,6 +92,23 @@ pub(crate) fn sign_extend_immediate(immediate: u64, width: u64) -> u64 {
 	}
 }
 
+impl Condition {
+	pub(crate) fn test(&self, carry: bool, zero: bool, overflow: bool, sign: bool) -> bool {
+		match self {
+			Condition::C => carry,
+			Condition::NC => !carry,
+			Condition::Z => zero,
+			Condition::NZ => !zero,
+			Condition::O => overflow,
+			Condition::NO => !overflow,
+			Condition::S => sign,
+			Condition::NS => !sign,
+			Condition::L => sign ^ overflow,
+			Condition::NL => !(sign ^ overflow),
+		}
+	}
+}
+
 impl From<u64> for Condition {
 	fn from(value: u64) -> Self {
 		match value {
@@ -101,6 +120,8 @@ impl From<u64> for Condition {
 			5 => Self::NO,
 			6 => Self::S,
 			7 => Self::NS,
+			8 => Self::L,
+			9 => Self::NL,
 			_ => panic!("Invalid condition value"),
 		}
 	}
@@ -403,6 +424,8 @@ impl CPUFlags {
 			Condition::NO => !self.overflow(),
 			Condition::S => self.sign(),
 			Condition::NS => !self.sign(),
+			Condition::L => self.sign() ^ self.overflow(),
+			Condition::NL => !(self.sign() ^ self.overflow()),
 		}
 	}
 }
