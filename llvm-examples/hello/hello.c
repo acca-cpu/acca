@@ -44,12 +44,15 @@ void print_string(const char* string) {
 		print_char(*(string++));
 };
 
+__attribute__((noreturn))
 void main(void) {
 	print_string("Hello, world!\n");
+	while (1) {}
 };
 
 __attribute__((section(".text.start")))
 __attribute__((naked))
+__attribute__((noreturn))
 void start(void) {
 	// load some arbitrary address into the stack pointer register
 	// (clear register before, then load 0x0100 << 16 == 0x0100_0000)
