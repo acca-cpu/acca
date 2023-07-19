@@ -7,3 +7,4 @@ spec/book
 **/*.bin
 **/.DS_Store
 **/._*
+/llvm-examples/hello/hello
