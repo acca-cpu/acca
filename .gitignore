@@ -12,3 +12,4 @@ spec/book
 /.cache
 **/*.o
 **/*.tmp
+**/*.log
