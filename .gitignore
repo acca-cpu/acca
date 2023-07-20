@@ -13,3 +13,5 @@ spec/book
 **/*.o
 **/*.tmp
 **/*.log
+build
+compile_commands.json
